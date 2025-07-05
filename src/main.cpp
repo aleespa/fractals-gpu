@@ -6,8 +6,8 @@
 #include "../external/stb_image_write.h"
 
 int main() {
-    int width = 2400;
-    int height = 2400;
+    int width = 800;
+    int height = 800;
     int maxIterations = 250;
 
     Fractal fractal(width, height, maxIterations);
