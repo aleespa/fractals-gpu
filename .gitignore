@@ -1,0 +1,20 @@
+# Visual Studio files
+.vs/
+*.vcxproj.user
+*.suo
+
+# Build results
+Debug/
+Release/
+*.obj
+*.exe
+*.pdb
+
+# CMake or temporary files
+CMakeFiles/
+CMakeCache.txt
+
+# User-specific files
+*.user
+*.userosscache
+*.sln.docstates
