@@ -17,7 +17,7 @@ void Fractal::generate() {
             double x0 = xMin + (xMax - xMin) * i / width;
             double y0 = yMin + (yMax - yMin) * j / height;
 
-            int iterations = computeIterations(x0, y0);
+            double iterations = computeIterations(x0, y0);
 
             unsigned char r, g, b;
             mapColor(iterations, maxIterations, r, g, b);
@@ -30,7 +30,7 @@ void Fractal::generate() {
     }
 }
 
-int Fractal::computeIterations(double x0, double y0) {
+double Fractal::computeIterations(double x0, double y0) {
     double x = 0.0;
     double y = 0.0;
     int iter = 0;
@@ -41,16 +41,22 @@ int Fractal::computeIterations(double x0, double y0) {
         x = xtemp;
         ++iter;
     }
-    return iter;
+
+    if (iter < maxIterations) {
+        double mag = sqrt(x * x + y * y);
+        double nu = iter + 1 - log(log(mag)) / log(2.0);
+        return nu;
+    }
+
+    return (double)iter;
 }
 
-void Fractal::mapColor(int iterations, int maxIterations, unsigned char& r, unsigned char& g, unsigned char& b) {
-    if (iterations == maxIterations) {
-        r = g = b = 0; // black for points inside the set
+void Fractal::mapColor(double iterations, int maxIterations, unsigned char& r, unsigned char& g, unsigned char& b) {
+    if (iterations >= maxIterations) {
+        r = g = b = 0; // black
     }
     else {
-        // Simple coloring: map iterations to a gradient
-        double t = (double)iterations / maxIterations;
+        double t = iterations / maxIterations;
         r = (unsigned char)(9 * (1 - t) * t * t * t * 255);
         g = (unsigned char)(15 * (1 - t) * (1 - t) * t * t * 255);
         b = (unsigned char)(8.5 * (1 - t) * (1 - t) * (1 - t) * t * 255);
