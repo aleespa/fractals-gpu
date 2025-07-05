@@ -1,4 +1,4 @@
-#include "Fractal.hpp"
+#include "../include/Fractal.hpp"
 #include <complex>
 
 Fractal::Fractal(int width, int height, int maxIterations)

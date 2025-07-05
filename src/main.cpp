@@ -1,9 +1,9 @@
 #define _CRT_SECURE_NO_WARNINGS
 #include <iostream>
-#include "Fractal.hpp"
+#include "../include/Fractal.hpp"
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
-#include "stb_image_write.h"
+#include "../external/stb_image_write.h"
 
 int main() {
     int width = 2400;
