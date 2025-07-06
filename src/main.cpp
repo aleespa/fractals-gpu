@@ -6,11 +6,14 @@
 #include "../external/stb_image_write.h"
 
 int main() {
-    int width = 800;
-    int height = 800;
+    int width = 1080;
+    int height = 1080;
     int maxIterations = 250;
+	double xLocation = -1.4002;
+	double yLocation = 0.0; 
+	double zoomFactor = 0.05; 
 
-    Fractal fractal(width, height, maxIterations);
+    Fractal fractal(width, height, maxIterations, xLocation, yLocation, zoomFactor);
 
     std::cout << "Generating fractal..." << std::endl;
     fractal.generate();

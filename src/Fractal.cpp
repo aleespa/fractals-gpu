@@ -2,14 +2,21 @@
 #include <complex>
 
 Fractal::Fractal(int width, int height, int maxIterations)
-    : width(width), height(height), maxIterations(maxIterations), image(width* height * 3, 0)
+    : width(width), height(height), maxIterations(maxIterations), image(width* height * 3, 0) 
+{
+	xLocation = -0.5;
+	yLocation = 0.0;
+	zoomFactor = 3;
+}
+Fractal::Fractal(int width, int height, int maxIterations, double xLocation, double yLocation, double zoomFactor)
+	: width(width), height(height), maxIterations(maxIterations), xLocation(xLocation), yLocation(yLocation), zoomFactor(zoomFactor), image(width* height * 3, 0)
 {
 }
 
 void Fractal::generate() {
     // Define the complex plane range
-    double xMin = -2.0, xMax = 1.0;
-    double yMin = -1.5, yMax = 1.5;
+    double xMin = xLocation - zoomFactor / 2, xMax = xLocation + zoomFactor / 2;
+    double yMin = yLocation - zoomFactor / 2, yMax = yLocation + zoomFactor / 2;
 
     for (int j = 0; j < height; ++j) {
         for (int i = 0; i < width; ++i) {
