@@ -1,13 +1,13 @@
 ﻿# CppFractals
 
-✨ A simple C++ application that generates beautiful fractal images (Mandelbrot set) and saves them as PNG files.
+A simple C++ application that generates beautiful fractal images and saves them as PNG files.
 
 ---
 
 ## Features
 
-- Generates Mandelbrot fractal images in the complex plane.
-- Allows customizing image resolution and iteration limits.
+- Generates fractal images in the complex plane.
+- Allows customizing image resolution, location and iteration limits.
 - Outputs PNG images (using `stb_image_write.h`).
 
 ---
@@ -38,12 +38,11 @@
 
 ## Usage
 
-When you run the program:
+You can adjust parameters such as image width, height, location, zoom factor and maximum iterations.
 
-- It will generate a fractal image using default parameters (e.g., 800×600 resolution and max iterations = 1000).
-- The image will be saved in the executable directory as `output.png`.
-
-You can adjust parameters such as image width, height, and maximum iterations in the `main.cpp` file if desired.
+```bash
+CppFractals.exe <width> <height> <maxIterations> <xLocation> <yLocation> <zoomFactor> <outputFilename>
+```
 
 ---
 
@@ -53,12 +52,3 @@ You can adjust parameters such as image width, height, and maximum iterations in
 
 ---
 
-## How to customize
-
-Edit `main.cpp` to set different regions or zoom levels in the complex plane.  
-Example:
-
-```cpp
-int width = 1920;
-int height = 1080;
-int maxIterations = 1500;
