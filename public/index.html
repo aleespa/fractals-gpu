@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mandelbrot Explorer</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="loader" id="loader">
+        <div class="spinner"></div>
+    </div>
+    <div id="fractal-container">
+        <img id="fractal-img" src="" alt="Mandelbrot Explorer">
+    </div>
+    
+    <div class="glass-panel" id="controls">
+        <h1>Mandelbrot Explorer</h1>
+        <p class="subtitle">Drag to pan &bull; Scroll to zoom</p>
+        
+        <div class="control-group">
+            <label for="type-select">Fractal Type</label>
+            <select id="type-select" style="width: 100%; padding: 6px; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--glass-border); border-radius: 4px; outline: none; font-family: 'Inter', sans-serif;">
+                <option value="0">Mandelbrot Set</option>
+                <option value="1">Julia Set</option>
+            </select>
+        </div>
+
+        <div class="control-group">
+            <label for="iterations">Max Iterations: <span id="iter-val">400</span></label>
+            <input type="range" id="iterations" min="50" max="2000" step="10" value="400">
+        </div>
+
+        <div id="julia-controls" style="display: none;">
+            <div class="control-group">
+                <label for="cx">Cx: <span id="cx-val">-0.400</span></label>
+                <input type="range" id="cx" min="-2.0" max="2.0" step="0.001" value="-0.4">
+            </div>
+            <div class="control-group">
+                <label for="cy">Cy: <span id="cy-val">0.600</span></label>
+                <input type="range" id="cy" min="-2.0" max="2.0" step="0.001" value="0.6">
+            </div>
+        </div>
+        
+        <div class="stats">
+            <div><span>X:</span> <span id="stat-x">-1.4002</span></div>
+            <div><span>Y:</span> <span id="stat-y">0.0000</span></div>
+            <div><span>Zoom:</span> <span id="stat-z">0.1000</span></div>
+        </div>
+
+        <button id="copy-cmd-btn" style="margin-bottom: 8px;">Copy CLI Command</button>
+        <button id="reset-btn">Reset View</button>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

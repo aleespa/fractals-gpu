@@ -1,0 +1,24 @@
+{
+  "name": "cppfractals",
+  "version": "1.0.0",
+  "description": "A simple C++ application that generates beautiful fractal images and saves them as PNG files.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/aleespa/fractals-gpu.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/aleespa/fractals-gpu/issues"
+  },
+  "homepage": "https://github.com/aleespa/fractals-gpu#readme",
+  "dependencies": {
+    "express": "^5.2.1"
+  }
+}
