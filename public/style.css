@@ -203,3 +203,71 @@ button:active {
 #fractal-img.loading {
     filter: blur(4px) brightness(0.7);
 }
+
+/* ── Gradient Palette Editor ────────────────────────────── */
+#gradient-bar {
+    position: relative;
+    width: 100%;
+    height: 28px;
+    border-radius: 8px;
+    cursor: crosshair;
+    border: 1px solid var(--glass-border);
+    box-shadow: 0 2px 12px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.08);
+    overflow: visible;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.palette-handle {
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: 2.5px solid rgba(255,255,255,0.85);
+    box-shadow: 0 0 0 1.5px rgba(0,0,0,0.5), 0 2px 8px rgba(0,0,0,0.6);
+    cursor: grab;
+    transition: transform 0.12s ease, box-shadow 0.12s ease;
+    z-index: 2;
+}
+
+.palette-handle:hover {
+    transform: translate(-50%, -50%) scale(1.25);
+    box-shadow: 0 0 0 2px rgba(255,255,255,0.5), 0 4px 14px rgba(0,0,0,0.7);
+}
+
+.palette-handle:active {
+    cursor: grabbing;
+    transform: translate(-50%, -50%) scale(1.15);
+}
+
+/* Pinned end-stops: show a lock cursor instead of crosshair */
+.palette-handle.pinned {
+    cursor: pointer;
+    border-color: rgba(255,255,255,0.5);
+}
+
+/* Delete ✕ badge shown on hover for non-pinned handles */
+.palette-handle::after {
+    content: '✕';
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    width: 13px;
+    height: 13px;
+    font-size: 8px;
+    line-height: 13px;
+    text-align: center;
+    background: #e74c3c;
+    border-radius: 50%;
+    color: #fff;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s;
+}
+
+.palette-handle:not(.pinned):hover::after {
+    opacity: 1;
+    pointer-events: all;
+}

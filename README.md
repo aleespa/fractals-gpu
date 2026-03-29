@@ -73,4 +73,5 @@ x64\Release\CppFractals.exe 3840 2160 400 2.0 -1.4002 0.0 0.10 my_mandelbrot.png
 
 ## Example Output
 
-![Example Mandelbrot](./mandelbrot.png)
+![Example Mandelbrot](./screenshot_1.png)
+![Example Julia](./screenshot_2.png)
