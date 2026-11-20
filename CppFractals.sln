@@ -13,6 +13,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FractalExplorer.Core", "src
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FractalExplorer.Tests", "tests\FractalExplorer.Tests\FractalExplorer.Tests.csproj", "{04BC2FA2-0D7A-4045-82FB-80FD91264CFE}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FractalExplorer", "src\FractalExplorer\FractalExplorer.csproj", "{36F9B341-0383-4EE1-B407-B88FB8BAF9EF}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -35,6 +37,10 @@ Global
 		{04BC2FA2-0D7A-4045-82FB-80FD91264CFE}.Debug|x64.Build.0 = Debug|x64
 		{04BC2FA2-0D7A-4045-82FB-80FD91264CFE}.Release|x64.ActiveCfg = Release|x64
 		{04BC2FA2-0D7A-4045-82FB-80FD91264CFE}.Release|x64.Build.0 = Release|x64
+		{36F9B341-0383-4EE1-B407-B88FB8BAF9EF}.Debug|x64.ActiveCfg = Debug|x64
+		{36F9B341-0383-4EE1-B407-B88FB8BAF9EF}.Debug|x64.Build.0 = Debug|x64
+		{36F9B341-0383-4EE1-B407-B88FB8BAF9EF}.Release|x64.ActiveCfg = Release|x64
+		{36F9B341-0383-4EE1-B407-B88FB8BAF9EF}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
