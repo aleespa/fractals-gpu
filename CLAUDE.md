@@ -19,7 +19,7 @@ VS 2022 (not 2026) with workloads "Desktop development with C++", ".NET desktop 
   x64\Release\CppFractals.exe <type> <width> <height> <maxIter> <xCenter> <yCenter> <zoom> <cx> <cy> <output.png> [--ss N] [t1 hex1 t2 hex2 ...]
   ```
   `type`: 0 = Mandelbrot, 1 = Julia (`cx, cy` is the Julia constant, ignored for Mandelbrot). `zoom` is the half-width in the complex plane (half-height = `zoom / aspect`). Palette stops are `t` in [0,1] plus a hex color without `#`; omitted means the built-in 5-stop palette. `--ss N` averages N x N samples per pixel.
-- **Tests:** `dotnet test tests\FractalExplorer.Tests` (xUnit, requires a prior full msbuild because it copies the prebuilt native DLL/exe).
+- **Tests:** `dotnet test tests\FractalExplorer.Tests\FractalExplorer.Tests.csproj -c Release -p:Platform=x64` (xUnit; run the full msbuild first: it copies the prebuilt native DLL/exe from x64\Release, and dotnet build/test cannot build the C++/CUDA projects).
 - **Pixel-identity check:** `pwsh -File tools\compare-baseline.ps1 -Baseline <saved baseline CppFractals.exe> -Candidate x64\Release\CppFractals.exe` (5 cases, all must PASS).
 - No linters.
 

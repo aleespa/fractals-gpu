@@ -49,10 +49,10 @@ The Explorer's "copy command" button puts a 5000x5000 command like this on the c
 
 ## Tests
 
-After a full build (the tests copy the prebuilt native DLL and exe):
+Run the msbuild command above first: the tests copy the prebuilt native DLL and exe from `x64\Release`, and `dotnet build/test` cannot build the C++/CUDA projects. Then:
 
 ```
-dotnet test tests\FractalExplorer.Tests
+dotnet test tests\FractalExplorer.Tests\FractalExplorer.Tests.csproj -c Release -p:Platform=x64
 ```
 
 To check that the renderer output is pixel-identical to a saved baseline exe:
