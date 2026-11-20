@@ -89,6 +89,36 @@
                         <TextBlock Grid.Row="2" Grid.Column="1" x:Name="StatZoom" FontFamily="Consolas" />
                     </Grid>
 
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="Export Image" />
+                        <ComboBox x:Name="ExportSizeCombo" HorizontalAlignment="Stretch" SelectedIndex="0"
+                                  SelectionChanged="ExportSizeCombo_SelectionChanged">
+                            <ComboBoxItem Content="4K (3840 × 2160)" />
+                            <ComboBoxItem Content="8K (7680 × 4320)" />
+                            <ComboBoxItem Content="Custom…" />
+                        </ComboBox>
+                        <StackPanel x:Name="ExportCustomPanel" Orientation="Horizontal" Spacing="8" Visibility="Collapsed">
+                            <NumberBox x:Name="ExportWidthBox" Header="Width" Width="120" Minimum="16" Maximum="16384"
+                                       Value="3840" SpinButtonPlacementMode="Hidden" />
+                            <NumberBox x:Name="ExportHeightBox" Header="Height" Width="120" Minimum="16" Maximum="16384"
+                                       Value="2160" SpinButtonPlacementMode="Hidden" />
+                        </StackPanel>
+                        <ComboBox x:Name="ExportSmoothCombo" HorizontalAlignment="Stretch" SelectedIndex="1">
+                            <ComboBoxItem Content="Smoothing: Off" />
+                            <ComboBoxItem Content="Smoothing: 4×" />
+                            <ComboBoxItem Content="Smoothing: 16×" />
+                        </ComboBox>
+                        <NumberBox x:Name="ExportIterBox" PlaceholderText="Iterations: same as view"
+                                   SpinButtonPlacementMode="Hidden" Minimum="0" Maximum="100000" />
+                        <Button x:Name="ExportButton" Content="Export PNG" HorizontalAlignment="Stretch"
+                                Click="ExportButton_Click" />
+                        <TextBlock x:Name="ExportStatus" TextWrapping="Wrap" Visibility="Collapsed"
+                                   Style="{StaticResource CaptionTextBlockStyle}" />
+                    </StackPanel>
+
+                    <Button x:Name="CopyCliButton" Content="Copy CLI Command" HorizontalAlignment="Stretch"
+                            Click="CopyCliButton_Click" />
+
                     <Button x:Name="ResetButton" Content="Reset View" HorizontalAlignment="Stretch"
                             Click="ResetButton_Click" />
                 </StackPanel>

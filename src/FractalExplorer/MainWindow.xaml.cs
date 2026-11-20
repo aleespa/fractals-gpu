@@ -234,6 +234,103 @@ public sealed partial class MainWindow : Window
         RequestRender(0);
     }
 
+    // ── Export / CLI ─────────────────────────────────────────────
+
+    private void ExportSizeCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (ExportCustomPanel is null) return;
+        ExportCustomPanel.Visibility = ExportSizeCombo.SelectedIndex == 2 ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void SetExportStatus(string text, bool error)
+    {
+        ExportStatus.Text = text;
+        ExportStatus.Foreground = error
+            ? new SolidColorBrush(Microsoft.UI.Colors.Red)
+            : (Brush)Application.Current.Resources["TextFillColorPrimaryBrush"];
+        ExportStatus.Visibility = Visibility.Visible;
+    }
+
+    private async void ExportButton_Click(object sender, RoutedEventArgs e)
+    {
+        int w, h;
+        switch (ExportSizeCombo.SelectedIndex)
+        {
+            case 1: w = 7680; h = 4320; break;
+            case 2:
+                w = double.IsNaN(ExportWidthBox.Value) ? 0 : (int)Math.Round(ExportWidthBox.Value);
+                h = double.IsNaN(ExportHeightBox.Value) ? 0 : (int)Math.Round(ExportHeightBox.Value);
+                break;
+            default: w = 3840; h = 2160; break;
+        }
+        if (!ExportMath.IsValidSize(w, h))
+        {
+            SetExportStatus($"Width and height must be between {ExportMath.MinSize} and {ExportMath.MaxSize}.", true);
+            return;
+        }
+
+        var picker = new Windows.Storage.Pickers.FileSavePicker();
+        WinRT.Interop.InitializeWithWindow.Initialize(picker, WinRT.Interop.WindowNative.GetWindowHandle(this));
+        picker.FileTypeChoices.Add("PNG image", new List<string> { ".png" });
+        picker.SuggestedFileName = Path.GetFileNameWithoutExtension(
+            ExportMath.DefaultFileName(_view.Type, w, h, DateTime.Now));
+        var file = await picker.PickSaveFileAsync();
+        if (file is null) return;
+
+        ExportButton.IsEnabled = false;
+        ExportButton.Content = "Rendering…";
+        SetExportStatus($"Rendering {w} × {h}…", false);
+
+        // Snapshot UI state before leaving the UI thread.
+        double viewAspect = ViewArea.ActualWidth / Math.Max(1, ViewArea.ActualHeight);
+        double zoom = ExportMath.AdjustZoomForAspect(_view.Zoom, w, h, viewAspect);
+        int ss = ExportMath.SupersampleForIndex(ExportSmoothCombo.SelectedIndex);
+        int iter = double.IsNaN(ExportIterBox.Value) || ExportIterBox.Value <= 0
+            ? _view.MaxIterations : (int)Math.Round(ExportIterBox.Value);
+        var (palT, palRgb) = _palette.ToNative();
+        var req = new RenderRequest(_view.Type, w, h, iter, _view.X, _view.Y, zoom, _view.Cx, _view.Cy, ss, palT, palRgb);
+        string path = file.Path;
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+
+        try
+        {
+            await Task.Run(() =>
+            {
+                var rgb = GC.AllocateUninitializedArray<byte>(checked(w * h * 3));
+                NativeRenderer.Render(req, PixelFormat.Rgb8, rgb, CancellationToken.None);
+                NativeRenderer.WritePng(path, w, h, rgb);
+            });
+            SetExportStatus(string.Create(CultureInfo.InvariantCulture,
+                $"Saved {file.Name} ({sw.Elapsed.TotalSeconds:F1}s)"), false);
+        }
+        catch (OutOfMemoryException)
+        {
+            SetExportStatus($"Not enough memory for a {w} × {h} export.", true);
+        }
+        catch (Exception ex) when (ex is FractalRenderException or ArgumentException
+                                       or IOException or UnauthorizedAccessException)
+        {
+            SetExportStatus(ex.Message, true);
+        }
+        finally
+        {
+            ExportButton.Content = "Export PNG";
+            ExportButton.IsEnabled = true;
+        }
+    }
+
+    private async void CopyCliButton_Click(object sender, RoutedEventArgs e)
+    {
+        string cmd = CliCommand.Build(Path.Combine(AppContext.BaseDirectory, "CppFractals.exe"),
+            _view, _palette, DateTime.UtcNow);
+        var dp = new Windows.ApplicationModel.DataTransfer.DataPackage();
+        dp.SetText(cmd);
+        Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(dp);
+        CopyCliButton.Content = "Copied!";
+        await Task.Delay(1500);
+        CopyCliButton.Content = "Copy CLI Command";
+    }
+
     /// <summary>Pushes <see cref="_view"/> into every control without triggering change handlers.</summary>
     private void SyncControls()
     {
