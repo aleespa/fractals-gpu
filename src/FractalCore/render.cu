@@ -27,11 +27,16 @@ extern "C" FC_API const char *fc_last_error(void) { return g_lastError.c_str(); 
 namespace {
 struct DevBuf {
   void *p = nullptr;
-  ~DevBuf() {
+  void release() {
     if (p)
       cudaFree(p);
+    p = nullptr;
   }
+  ~DevBuf() { release(); }
 };
+
+// Appended to every CUDA error message (UTF-8 em dash).
+const char *const kCudaHint = "\xE2\x80\x94 try fewer iterations or less smoothing.";
 } // namespace
 
 extern "C" FC_API int32_t fc_render(const FcParams *p, uint8_t *out,
@@ -90,12 +95,24 @@ extern "C" FC_API int32_t fc_render(const FcParams *p, uint8_t *out,
   }
   const int paletteSize = (int)palT.size();
 
-  auto cudaFail = [&](cudaError_t e) {
-    g_lastError = cudaGetErrorString(e);
+  DevBuf dPalT, dPalRGB, dImage;
+
+  // Any CUDA failure may be sticky (launch timeout/TDR, launch failure,
+  // illegal address) and would poison the context for the rest of the
+  // process. Free our buffers, then reset the device while still holding the
+  // mutex so the next fc_render call starts with a fresh context.
+  auto cudaFailMsg = [&](const std::string &msg) {
+    g_lastError = msg + " " + kCudaHint;
+    dImage.release();
+    dPalRGB.release();
+    dPalT.release();
+    cudaDeviceReset();
     return (int32_t)FC_ERR_CUDA;
   };
+  auto cudaFail = [&](cudaError_t e) {
+    return cudaFailMsg(cudaGetErrorString(e));
+  };
 
-  DevBuf dPalT, dPalRGB, dImage;
   cudaError_t e;
   if ((e = cudaMalloc(&dPalT.p, paletteSize * sizeof(float))) != cudaSuccess)
     return cudaFail(e);
@@ -119,11 +136,9 @@ extern "C" FC_API int32_t fc_render(const FcParams *p, uint8_t *out,
 
   size_t imageSize =
       static_cast<size_t>(width) * static_cast<size_t>(height) * 3;
-  if ((e = cudaMalloc(&dImage.p, imageSize)) != cudaSuccess) {
-    g_lastError =
-        "could not allocate " + std::to_string(imageSize) + " bytes for the image: " + cudaGetErrorString(e);
-    return FC_ERR_CUDA;
-  }
+  if ((e = cudaMalloc(&dImage.p, imageSize)) != cudaSuccess)
+    return cudaFailMsg("could not allocate " + std::to_string(imageSize) +
+                       " bytes for the image: " + cudaGetErrorString(e));
   unsigned char *d_image = (unsigned char *)dImage.p;
   cudaMemset(d_image, 0, imageSize);
 
