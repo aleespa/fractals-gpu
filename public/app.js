@@ -10,11 +10,11 @@ let state = {
 };
 
 let palette = [
-    { t: 0.0,  hex: "000000" },
+    { t: 0.0, hex: "000000" },
     { t: 0.25, hex: "2130C8" },
-    { t: 0.5,  hex: "8C0021" },
+    { t: 0.5, hex: "8C0021" },
     { t: 0.75, hex: "FF9900" },
-    { t: 1.0,  hex: "FFFFFF" },
+    { t: 1.0, hex: "FFFFFF" },
 ];
 
 let isDragging = false;
@@ -29,24 +29,24 @@ let visTranslateY = 0;
 let visScale = 1;
 
 // ── DOM refs ────────────────────────────────────────────────
-const imgElement       = document.getElementById('fractal-img');
+const imgElement = document.getElementById('fractal-img');
 const containerElement = document.getElementById('fractal-container');
-const loaderElement    = document.getElementById('loader');
-const typeSelect       = document.getElementById('type-select');
-const juliaControls    = document.getElementById('julia-controls');
-const iterSlider       = document.getElementById('iterations');
-const cxSlider         = document.getElementById('cx');
-const cySlider         = document.getElementById('cy');
-const iterVal          = document.getElementById('iter-val');
-const cxVal            = document.getElementById('cx-val');
-const cyVal            = document.getElementById('cy-val');
-const statX            = document.getElementById('stat-x');
-const statY            = document.getElementById('stat-y');
-const statZ            = document.getElementById('stat-z');
-const copyCmdBtn       = document.getElementById('copy-cmd-btn');
-const resetBtn         = document.getElementById('reset-btn');
-const gradientBar      = document.getElementById('gradient-bar');
-const nativePicker     = document.getElementById('native-color-picker');
+const loaderElement = document.getElementById('loader');
+const typeSelect = document.getElementById('type-select');
+const juliaControls = document.getElementById('julia-controls');
+const iterSlider = document.getElementById('iterations');
+const cxSlider = document.getElementById('cx');
+const cySlider = document.getElementById('cy');
+const iterVal = document.getElementById('iter-val');
+const cxVal = document.getElementById('cx-val');
+const cyVal = document.getElementById('cy-val');
+const statX = document.getElementById('stat-x');
+const statY = document.getElementById('stat-y');
+const statZ = document.getElementById('stat-z');
+const copyCmdBtn = document.getElementById('copy-cmd-btn');
+const resetBtn = document.getElementById('reset-btn');
+const gradientBar = document.getElementById('gradient-bar');
+const nativePicker = document.getElementById('native-color-picker');
 
 // ── Helpers ─────────────────────────────────────────────────
 function hexToRgb(hex) {
@@ -94,11 +94,11 @@ function updateTransform() {
 // ── Stats UI ────────────────────────────────────────────────
 function updateStatsUI() {
     iterVal.textContent = state.iter;
-    cxVal.textContent   = state.cx.toFixed(3);
-    cyVal.textContent   = state.cy.toFixed(3);
-    statX.textContent   = state.x.toFixed(6);
-    statY.textContent   = state.y.toFixed(6);
-    statZ.textContent   = parseFloat((1 / state.zoom).toFixed(2)).toLocaleString() + "x";
+    cxVal.textContent = state.cx.toFixed(3);
+    cyVal.textContent = state.cy.toFixed(3);
+    statX.textContent = state.x.toFixed(6);
+    statY.textContent = state.y.toFixed(6);
+    statZ.textContent = parseFloat((1 / state.zoom).toFixed(2)).toLocaleString() + "x";
 }
 
 // ── Fetch ────────────────────────────────────────────────────
@@ -106,20 +106,20 @@ async function fetchFractal() {
     if (currentAbortController) currentAbortController.abort();
     currentAbortController = new AbortController();
 
-    const width  = window.innerWidth;
+    const width = window.innerWidth;
     const height = window.innerHeight;
 
     const params = new URLSearchParams({
         type: state.type,
-        w:    width,
-        h:    height,
+        w: width,
+        h: height,
         iter: state.iter,
-        x:    state.x,
-        y:    state.y,
-        z:    state.zoom,
-        cx:   state.cx,
-        cy:   state.cy,
-        pal:  serializePalette()
+        x: state.x,
+        y: state.y,
+        z: state.zoom,
+        cx: state.cx,
+        cy: state.cy,
+        pal: serializePalette()
     });
 
     const url = `/api/fractal?${params.toString()}`;
@@ -130,7 +130,7 @@ async function fetchFractal() {
         const response = await fetch(url, { signal: currentAbortController.signal });
         if (!response.ok) throw new Error("Failed to load image");
 
-        const blob      = await response.blob();
+        const blob = await response.blob();
         const objectURL = URL.createObjectURL(blob);
 
         imgElement.onload = () => {
@@ -174,7 +174,7 @@ function renderGradientBar() {
     palette.forEach((stop) => {
         const handle = document.createElement('div');
         handle.className = 'palette-handle' + (stop.t === 0 || stop.t === 1 ? ' pinned' : '');
-        handle.style.left            = `${stop.t * 100}%`;
+        handle.style.left = `${stop.t * 100}%`;
         handle.style.backgroundColor = '#' + stop.hex;
         handle.dataset.t = stop.t; // store t as a key for lookup
 
@@ -183,7 +183,7 @@ function renderGradientBar() {
 }
 
 // ── Palette interactions ─────────────────────────────────────
-let draggingStop = null; 
+let draggingStop = null;
 let barDragStartX = 0;
 let barDragStartY = 0;
 let draggedDistance = 0;
@@ -239,12 +239,12 @@ window.addEventListener('mousemove', (e) => {
     const newT = Math.max(0.001, Math.min(0.999, (e.clientX - rect.left) / rect.width));
 
     draggingStop.t = newT;
-    
+
     // Live update background for smooth dragging
     const tempSorted = [...palette].sort((a, b) => a.t - b.t);
     const stopsString = tempSorted.map(s => `${hexToRgbStr(s.hex)} ${(s.t * 100).toFixed(2)}%`).join(', ');
     gradientBar.style.background = `linear-gradient(to right, ${stopsString})`;
-    
+
     // Find the current DOM handle and move it manually
     const handle = [...gradientBar.querySelectorAll('.palette-handle')].find(h => stopByT(parseFloat(h.dataset.t)) === draggingStop);
     if (handle) {
@@ -289,7 +289,7 @@ gradientBar.addEventListener('contextmenu', (e) => {
     e.preventDefault();
 
     const t = parseFloat(handle.dataset.t);
-    if (t === 0 || t === 1) return; 
+    if (t === 0 || t === 1) return;
     if (palette.length <= 2) return;
 
     palette = palette.filter(s => Math.abs(s.t - t) >= 1e-9);
@@ -305,7 +305,7 @@ const onPickerInput = (ev) => {
     if (!currentActiveStop || !currentActiveHandle) return;
     currentActiveStop.hex = ev.target.value.slice(1).toUpperCase();
     currentActiveHandle.style.backgroundColor = ev.target.value;
-    
+
     // Live CSS gradient sync
     const tempSorted = [...palette].sort((a, b) => a.t - b.t);
     const stopsStr = tempSorted.map(s => `${hexToRgbStr(s.hex)} ${(s.t * 100).toFixed(2)}%`).join(', ');
@@ -328,11 +328,11 @@ function openColorPicker(stop, handle) {
     currentActiveStop = stop;
     currentActiveHandle = handle;
     nativePicker.value = '#' + stop.hex;
-    
+
     const rect = handle.getBoundingClientRect();
     nativePicker.style.left = `${rect.left}px`;
-    nativePicker.style.top  = `${rect.bottom + 4}px`;
-    
+    nativePicker.style.top = `${rect.bottom + 4}px`;
+
     nativePicker.click();
 }
 
@@ -365,19 +365,19 @@ resetBtn.addEventListener('click', () => {
     state = { type: state.type, x: -1.4002, y: 0.0, zoom: 0.10, iter: 400, cx: -0.4, cy: 0.6 };
     if (state.type === 1) { state.x = 0; state.zoom = 1.5; }
     iterSlider.value = state.iter;
-    cxSlider.value   = state.cx;
-    cySlider.value   = state.cy;
+    cxSlider.value = state.cx;
+    cySlider.value = state.cy;
     visTranslateX = 0;
     visTranslateY = 0;
     visScale = 1;
 
     // Reset palette to default
     palette = [
-        { t: 0.0,  hex: "000000" },
+        { t: 0.0, hex: "000000" },
         { t: 0.25, hex: "2130C8" },
-        { t: 0.5,  hex: "8C0021" },
+        { t: 0.5, hex: "8C0021" },
         { t: 0.75, hex: "FF9900" },
-        { t: 1.0,  hex: "FFFFFF" },
+        { t: 1.0, hex: "FFFFFF" },
     ];
 
     updateTransform();
@@ -391,12 +391,100 @@ copyCmdBtn.addEventListener('click', () => {
         .sort((a, b) => a.t - b.t)
         .flatMap(s => [s.t.toFixed(6), s.hex])
         .join(' ');
-    const cmd = `.\\x64\\Release\\CppFractals.exe ${state.type} 5000 5000 ${state.iter} ${state.x} ${state.y} ${state.zoom} ${state.cx} ${state.cy} output.png ${palArgs}`;
+
+    const now = new Date();
+    const timestamp = now.toISOString().replace(/[-:.TZ]/g, '').slice(0, 15);
+    const filename = `output_${timestamp}.png`;
+
+    const cmd = `.\\x64\\Release\\CppFractals.exe ${state.type} 5000 5000 ${state.iter} ${state.x} ${state.y} ${state.zoom} ${state.cx} ${state.cy} ${filename} ${palArgs}`;
     navigator.clipboard.writeText(cmd).then(() => {
         const orig = copyCmdBtn.textContent;
         copyCmdBtn.textContent = 'Copied!';
         setTimeout(() => copyCmdBtn.textContent = orig, 1500);
     }).catch(err => console.error('Failed to copy text:', err));
+});
+
+// ── Export ───────────────────────────────────────────────
+const exportSize = document.getElementById('export-size');
+const exportCustom = document.getElementById('export-custom');
+const exportW = document.getElementById('export-w');
+const exportH = document.getElementById('export-h');
+const exportSS = document.getElementById('export-ss');
+const exportIter = document.getElementById('export-iter');
+const exportBtn = document.getElementById('export-btn');
+const exportStatus = document.getElementById('export-status');
+
+exportSize.addEventListener('change', () => {
+    exportCustom.hidden = exportSize.value !== 'custom';
+});
+
+function setExportStatus(text, isError = false) {
+    exportStatus.textContent = text;
+    exportStatus.classList.toggle('error', isError);
+}
+
+exportBtn.addEventListener('click', async () => {
+    let w, h;
+    if (exportSize.value === 'custom') {
+        w = parseInt(exportW.value, 10);
+        h = parseInt(exportH.value, 10);
+    } else {
+        [w, h] = exportSize.value.split('x').map(Number);
+    }
+    if (!(w >= 16 && w <= 16384 && h >= 16 && h <= 16384)) {
+        setExportStatus('Width and height must be between 16 and 16384.', true);
+        return;
+    }
+    const iterOverride = parseInt(exportIter.value, 10);
+
+    const params = new URLSearchParams({
+        type: state.type,
+        w, h,
+        iter: iterOverride > 0 ? iterOverride : state.iter,
+        x: state.x,
+        y: state.y,
+        z: state.zoom,
+        cx: state.cx,
+        cy: state.cy,
+        va: window.innerWidth / window.innerHeight, // so the export keeps the framed view
+        ss: exportSS.value,
+        pal: serializePalette()
+    });
+
+    exportBtn.disabled = true;
+    exportBtn.textContent = 'Rendering…';
+    setExportStatus(`Rendering ${w} × ${h}…`);
+    const started = performance.now();
+
+    try {
+        const response = await fetch(`/api/export?${params.toString()}`);
+        if (!response.ok) {
+            let msg = `Export failed (${response.status})`;
+            try { msg = (await response.json()).error || msg; } catch { /* not JSON */ }
+            throw new Error(msg);
+        }
+        const blob = await response.blob();
+        const disposition = response.headers.get('Content-Disposition') || '';
+        const match = disposition.match(/filename="?([^";]+)"?/);
+        const filename = match ? match[1] : `fractal_${w}x${h}.png`;
+
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+
+        const secs = ((performance.now() - started) / 1000).toFixed(1);
+        setExportStatus(`Downloaded ${filename} (${secs}s)`);
+    } catch (e) {
+        console.error(e);
+        setExportStatus(e.message, true);
+    } finally {
+        exportBtn.disabled = false;
+        exportBtn.textContent = 'Export PNG';
+    }
 });
 
 // ── Panning ──────────────────────────────────────────────────
@@ -425,11 +513,11 @@ window.addEventListener('mousemove', (e) => {
     visTranslateY += dy;
     updateTransform();
 
-    const width       = window.innerWidth;
-    const height      = window.innerHeight;
+    const width = window.innerWidth;
+    const height = window.innerHeight;
     const aspectRatio = width / height;
 
-    state.x -= (dx / width)  * (2 * state.zoom);
+    state.x -= (dx / width) * (2 * state.zoom);
     state.y -= (dy / height) * (2 * state.zoom / aspectRatio);
     updateStatsUI();
 });
@@ -438,20 +526,20 @@ window.addEventListener('mousemove', (e) => {
 containerElement.addEventListener('wheel', (e) => {
     e.preventDefault();
 
-    const zoomDelta  = Math.abs(e.deltaY) * 0.001 * 0.5 + 0.1;
-    let mathFactor   = e.deltaY > 0 ? (1 + zoomDelta) : (1 - zoomDelta);
-    let factor       = 1 / mathFactor;
+    const zoomDelta = Math.abs(e.deltaY) * 0.001 * 0.5 + 0.1;
+    let mathFactor = e.deltaY > 0 ? (1 + zoomDelta) : (1 - zoomDelta);
+    let factor = 1 / mathFactor;
 
-    const W           = window.innerWidth;
-    const H           = window.innerHeight;
+    const W = window.innerWidth;
+    const H = window.innerHeight;
     const aspectRatio = W / H;
-    const offsetX     = e.clientX - W / 2;
-    const offsetY     = e.clientY - H / 2;
+    const offsetX = e.clientX - W / 2;
+    const offsetY = e.clientY - H / 2;
 
     const cxOffset = (offsetX / W) * (2 * state.zoom);
     const cyOffset = (offsetY / H) * (2 * state.zoom / aspectRatio);
-    const mouseCx  = state.x + cxOffset;
-    const mouseCy  = state.y + cyOffset;
+    const mouseCx = state.x + cxOffset;
+    const mouseCy = state.y + cyOffset;
 
     state.zoom *= mathFactor;
 

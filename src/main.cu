@@ -1,3 +1,4 @@
+#include <cmath>
 #include <cstdlib>
 #include <cuda_runtime.h>
 #include <iostream>
@@ -12,13 +13,14 @@ extern __global__ void mandelbrotKernel(unsigned char *image, int width,
                                         int height, int maxIterations,
                                         double xMin, double xMax, double yMin,
                                         double yMax, const float *palT,
-                                        const float *palRGB, int palSize);
+                                        const float *palRGB, int palSize,
+                                        int ss);
 
 extern __global__ void juliaKernel(unsigned char *image, int width, int height,
                                    int maxIterations, double xMin, double xMax,
                                    double yMin, double yMax, double cx,
                                    double cy, const float *palT,
-                                   const float *palRGB, int palSize);
+                                   const float *palRGB, int palSize, int ss);
 
 int main(int argc, char *argv[]) {
   int type = 0; // 0 for mandelbrot, 1 for julia
@@ -51,13 +53,29 @@ int main(int argc, char *argv[]) {
   if (argc >= 11)
     outputFilename = argv[10];
 
-  // Parse palette stops from argv[11] onward: pairs of (t_float, hexcolor)
+  // Remaining args: optional "--ss N" (supersampling: N x N samples per
+  // pixel) and palette stops as pairs of (t_float, hexcolor)
+  int ss = 1;
+  std::vector<std::string> palArgs;
+  for (int a = 11; a < argc; ++a) {
+    std::string arg = argv[a];
+    if (arg == "--ss" && a + 1 < argc) {
+      ss = std::atoi(argv[++a]);
+    } else {
+      palArgs.push_back(arg);
+    }
+  }
+  if (ss < 1)
+    ss = 1;
+  if (ss > 8)
+    ss = 8;
+
   std::vector<float> palT;
   std::vector<float> palRGB;
 
-  for (int a = 11; a + 1 < argc; a += 2) {
-    float t = std::stof(argv[a]);
-    unsigned int hex = (unsigned int)std::stoul(argv[a + 1], nullptr, 16);
+  for (size_t a = 0; a + 1 < palArgs.size(); a += 2) {
+    float t = std::stof(palArgs[a]);
+    unsigned int hex = (unsigned int)std::stoul(palArgs[a + 1], nullptr, 16);
     palT.push_back(t);
     palRGB.push_back(((hex >> 16) & 0xFF) / 255.0f);
     palRGB.push_back(((hex >> 8) & 0xFF) / 255.0f);
@@ -96,6 +114,7 @@ int main(int argc, char *argv[]) {
   if (type == 1)
     std::cout << "Julia C:       (" << cx << ", " << cy << ")" << std::endl;
   std::cout << "Output:        " << outputFilename << std::endl;
+  std::cout << "Supersampling: " << ss << "x" << ss << std::endl;
 
   std::cout << "Palette stops: " << paletteSize << std::endl;
   for (int i = 0; i < paletteSize; ++i) {
@@ -127,24 +146,46 @@ int main(int argc, char *argv[]) {
   size_t imageSize =
       static_cast<size_t>(width) * static_cast<size_t>(height) * 3;
   unsigned char *d_image;
-  cudaMalloc(reinterpret_cast<void **>(&d_image), imageSize);
+  if (cudaMalloc(reinterpret_cast<void **>(&d_image), imageSize) !=
+      cudaSuccess) {
+    std::cerr << "CUDA error: could not allocate " << imageSize
+              << " bytes for the image" << std::endl;
+    return 1;
+  }
   cudaMemset(d_image, 0, imageSize);
 
+  // Render in horizontal bands so no single kernel launch runs long enough
+  // to trigger the Windows GPU watchdog (TDR, ~2 s) on large/supersampled
+  // renders. Each band is rendered as its own "image" with a y-range slice.
+  const int bandRows = 32;
   dim3 blockSize(16, 16);
-  dim3 gridSize((width + blockSize.x - 1) / blockSize.x,
-                (height + blockSize.y - 1) / blockSize.y);
+  double dyPerRow = (yMax - yMin) / height;
 
   std::cout << "Generating fractal on GPU..." << std::endl;
-  if (type == 0) {
-    mandelbrotKernel<<<gridSize, blockSize>>>(
-        d_image, width, height, maxIterations, xMin, xMax, yMin, yMax, d_palT,
-        d_palRGB, paletteSize);
-  } else {
-    juliaKernel<<<gridSize, blockSize>>>(d_image, width, height, maxIterations,
-                                         xMin, xMax, yMin, yMax, cx, cy, d_palT,
-                                         d_palRGB, paletteSize);
+  for (int row0 = 0; row0 < height; row0 += bandRows) {
+    int rows = (height - row0 < bandRows) ? height - row0 : bandRows;
+    double bandYMin = yMin + dyPerRow * row0;
+    double bandYMax = bandYMin + dyPerRow * rows;
+    unsigned char *bandImage = d_image + static_cast<size_t>(row0) * width * 3;
+    dim3 gridSize((width + blockSize.x - 1) / blockSize.x,
+                  (rows + blockSize.y - 1) / blockSize.y);
+    if (type == 0) {
+      mandelbrotKernel<<<gridSize, blockSize>>>(
+          bandImage, width, rows, maxIterations, xMin, xMax, bandYMin,
+          bandYMax, d_palT, d_palRGB, paletteSize, ss);
+    } else {
+      juliaKernel<<<gridSize, blockSize>>>(
+          bandImage, width, rows, maxIterations, xMin, xMax, bandYMin,
+          bandYMax, cx, cy, d_palT, d_palRGB, paletteSize, ss);
+    }
+    cudaError_t err = cudaDeviceSynchronize();
+    if (err == cudaSuccess)
+      err = cudaGetLastError();
+    if (err != cudaSuccess) {
+      std::cerr << "CUDA error: " << cudaGetErrorString(err) << std::endl;
+      return 1;
+    }
   }
-  cudaDeviceSynchronize();
 
   std::vector<unsigned char> image(imageSize);
   cudaMemcpy(image.data(), d_image, imageSize, cudaMemcpyDeviceToHost);
@@ -153,7 +194,11 @@ int main(int argc, char *argv[]) {
                      width * 3)) {
     std::cout << "Fractal saved in " << outputFilename << std::endl;
   } else {
-    std::cout << "Failed to save image!" << std::endl;
+    std::cerr << "Failed to save image!" << std::endl;
+    cudaFree(d_image);
+    cudaFree(d_palT);
+    cudaFree(d_palRGB);
+    return 1;
   }
 
   cudaFree(d_image);

@@ -271,3 +271,55 @@ button:active {
     opacity: 1;
     pointer-events: all;
 }
+
+/* Export panel */
+.export-panel {
+    margin: 4px 0 16px;
+    padding-top: 14px;
+    border-top: 1px solid var(--glass-border);
+}
+
+.export-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+.export-row[hidden] {
+    display: none;
+}
+
+.export-row select,
+.export-row input {
+    flex: 1;
+    min-width: 0;
+    padding: 6px;
+    background: rgba(0, 0, 0, 0.5);
+    color: var(--text-primary);
+    border: 1px solid var(--glass-border);
+    border-radius: 4px;
+    outline: none;
+    font-family: 'Inter', sans-serif;
+}
+
+.export-x {
+    color: var(--text-secondary);
+}
+
+button:disabled {
+    opacity: 0.6;
+    cursor: wait;
+    transform: none;
+}
+
+.export-status {
+    min-height: 1.1em;
+    margin-top: 6px;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.export-status.error {
+    color: #f87171;
+}

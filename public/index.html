@@ -56,6 +56,34 @@
             <div><span>Zoom:</span> <span id="stat-z">10x</span></div>
         </div>
 
+        <div class="export-panel">
+            <label>Export Image</label>
+            <div class="export-row">
+                <select id="export-size">
+                    <option value="3840x2160" selected>4K (3840 &times; 2160)</option>
+                    <option value="7680x4320">8K (7680 &times; 4320)</option>
+                    <option value="custom">Custom&hellip;</option>
+                </select>
+            </div>
+            <div class="export-row" id="export-custom" hidden>
+                <input type="number" id="export-w" min="16" max="16384" value="3840" aria-label="Width">
+                <span class="export-x">&times;</span>
+                <input type="number" id="export-h" min="16" max="16384" value="2160" aria-label="Height">
+            </div>
+            <div class="export-row">
+                <select id="export-ss" aria-label="Smoothing">
+                    <option value="1">Smoothing: Off</option>
+                    <option value="2" selected>Smoothing: 4&times;</option>
+                    <option value="4">Smoothing: 16&times;</option>
+                </select>
+            </div>
+            <div class="export-row">
+                <input type="number" id="export-iter" min="50" max="100000" placeholder="Iterations: same as view" aria-label="Export iterations">
+            </div>
+            <button id="export-btn">Export PNG</button>
+            <div class="export-status" id="export-status" role="status"></div>
+        </div>
+
         <button id="copy-cmd-btn" style="margin-bottom: 8px;">Copy CLI Command</button>
         <button id="reset-btn">Reset View</button>
     </div>

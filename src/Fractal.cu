@@ -22,60 +22,10 @@ __device__ float3 paletteColor(const float* palT, const float* palRGB, int palSi
     };
 }
 
-__global__ void mandelbrotKernel(
-    unsigned char* image, int width, int height, int maxIterations,
-    double xMin, double xMax, double yMin, double yMax,
-    const float* palT, const float* palRGB, int palSize) {
-    int i = blockIdx.x * blockDim.x + threadIdx.x;
-    int j = blockIdx.y * blockDim.y + threadIdx.y;
-    if (i >= width || j >= height) return;
-
-    double x0 = xMin + (xMax - xMin) * i / width;
-    double y0 = yMin + (yMax - yMin) * j / height;
-
-    double x = 0.0;
-    double y = 0.0;
+// Iterates z -> z^2 + c from z0 and returns the smooth-coloured palette value.
+__device__ float3 escapeColor(double x, double y, double cx, double cy, int maxIterations,
+                              const float* palT, const float* palRGB, int palSize) {
     int iter = 0;
-
-    while (x * x + y * y <= 4.0 && iter < maxIterations) {
-        double xtemp = x * x - y * y + x0;
-        y = 2.0 * x * y + y0;
-        x = xtemp;
-        ++iter;
-    }
-
-    double nu = iter;
-    if (iter < maxIterations) {
-        double mag = sqrt(x * x + y * y);
-        nu = iter + 1 - log(log(mag)) / log(2.0);
-	}
-
-    double t = nu < maxIterations ? (double)nu / maxIterations : 0.0;
-
-    float3 color = paletteColor(palT, palRGB, palSize, (float)t);
-    unsigned char r = (unsigned char)(color.x * 255.0f);
-    unsigned char g = (unsigned char)(color.y * 255.0f);
-    unsigned char b = (unsigned char)(color.z * 255.0f);
-
-    int idx = (j * width + i) * 3;
-    image[idx + 0] = r;
-    image[idx + 1] = g;
-    image[idx + 2] = b;
-}
-
-__global__ void juliaKernel(
-    unsigned char* image, int width, int height, int maxIterations,
-    double xMin, double xMax, double yMin, double yMax, double cx, double cy,
-    const float* palT, const float* palRGB, int palSize) {
-    int i = blockIdx.x * blockDim.x + threadIdx.x;
-    int j = blockIdx.y * blockDim.y + threadIdx.y;
-    if (i >= width || j >= height) return;
-
-    double x = xMin + (xMax - xMin) * i / width;
-    double y = yMin + (yMax - yMin) * j / height;
-
-    int iter = 0;
-
     while (x * x + y * y <= 4.0 && iter < maxIterations) {
         double xtemp = x * x - y * y + cx;
         y = 2.0 * x * y + cy;
@@ -89,15 +39,61 @@ __global__ void juliaKernel(
         nu = iter + 1 - log(log(mag)) / log(2.0);
     }
 
-    double t = nu < maxIterations ? (double)nu / maxIterations : 0.0;
+    double t = nu < maxIterations ? nu / maxIterations : 0.0;
+    return paletteColor(palT, palRGB, palSize, (float)t);
+}
 
-    float3 color = paletteColor(palT, palRGB, palSize, (float)t);
-    unsigned char r = (unsigned char)(color.x * 255.0f);
-    unsigned char g = (unsigned char)(color.y * 255.0f);
-    unsigned char b = (unsigned char)(color.z * 255.0f);
+// Renders one pixel, averaging an ss x ss grid of samples inside it (ss = 1: single sample).
+// julia == false: Mandelbrot (z0 = 0, c = point); julia == true: z0 = point, c = (cx, cy).
+__device__ void renderPixel(unsigned char* image, int i, int j, int width, int height,
+                            int maxIterations, double xMin, double xMax, double yMin,
+                            double yMax, bool julia, double cx, double cy, int ss,
+                            const float* palT, const float* palRGB, int palSize) {
+    double dx = (xMax - xMin) / width;
+    double dy = (yMax - yMin) / height;
+    float3 acc = {0.0f, 0.0f, 0.0f};
 
+    for (int sy = 0; sy < ss; ++sy) {
+        for (int sx = 0; sx < ss; ++sx) {
+            // ss == 1 keeps the original top-left pixel sampling
+            double ox = ss > 1 ? (sx + 0.5) / ss : 0.0;
+            double oy = ss > 1 ? (sy + 0.5) / ss : 0.0;
+            double px = xMin + dx * (i + ox);
+            double py = yMin + dy * (j + oy);
+            float3 c = julia
+                ? escapeColor(px, py, cx, cy, maxIterations, palT, palRGB, palSize)
+                : escapeColor(0.0, 0.0, px, py, maxIterations, palT, palRGB, palSize);
+            acc.x += c.x;
+            acc.y += c.y;
+            acc.z += c.z;
+        }
+    }
+
+    float inv = 1.0f / (ss * ss);
     int idx = (j * width + i) * 3;
-    image[idx + 0] = r;
-    image[idx + 1] = g;
-    image[idx + 2] = b;
+    image[idx + 0] = (unsigned char)(fminf(acc.x * inv, 1.0f) * 255.0f);
+    image[idx + 1] = (unsigned char)(fminf(acc.y * inv, 1.0f) * 255.0f);
+    image[idx + 2] = (unsigned char)(fminf(acc.z * inv, 1.0f) * 255.0f);
+}
+
+__global__ void mandelbrotKernel(
+    unsigned char* image, int width, int height, int maxIterations,
+    double xMin, double xMax, double yMin, double yMax,
+    const float* palT, const float* palRGB, int palSize, int ss) {
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    int j = blockIdx.y * blockDim.y + threadIdx.y;
+    if (i >= width || j >= height) return;
+    renderPixel(image, i, j, width, height, maxIterations, xMin, xMax, yMin, yMax,
+                false, 0.0, 0.0, ss, palT, palRGB, palSize);
+}
+
+__global__ void juliaKernel(
+    unsigned char* image, int width, int height, int maxIterations,
+    double xMin, double xMax, double yMin, double yMax, double cx, double cy,
+    const float* palT, const float* palRGB, int palSize, int ss) {
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    int j = blockIdx.y * blockDim.y + threadIdx.y;
+    if (i >= width || j >= height) return;
+    renderPixel(image, i, j, width, height, maxIterations, xMin, xMax, yMin, yMax,
+                true, cx, cy, ss, palT, palRGB, palSize);
 }
