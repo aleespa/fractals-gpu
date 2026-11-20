@@ -20,4 +20,6 @@ CMakeCache.txt
 *.sln.docstates
 
 
-node_modules/
+x64/
+bin/
+obj/
