@@ -11,6 +11,7 @@
                 PointerPressed="Canvas_PointerPressed"
                 PointerMoved="Canvas_PointerMoved"
                 PointerReleased="Canvas_PointerReleased"
-                PointerCanceled="Canvas_PointerCanceled" />
+                PointerCanceled="Canvas_PointerCanceled"
+                PointerCaptureLost="Canvas_PointerCaptureLost" />
     </Grid>
 </UserControl>

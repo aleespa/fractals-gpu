@@ -66,25 +66,34 @@ public sealed partial class GradientEditor : UserControl
             brush.GradientStops.Add(new GradientStop { Offset = s.T, Color = ToColor(s.Rgb) });
         Bar.Fill = brush;
 
-        HandleCanvas.Children.Clear();
-        _handles.Clear();
-        foreach (var s in _palette.Stops)
+        bool sameSet = _handles.Count == _palette.Stops.Count && _palette.Stops.All(_handles.ContainsKey);
+        if (!sameSet)
         {
-            var h = new Ellipse
+            HandleCanvas.Children.Clear();
+            _handles.Clear();
+            foreach (var s in _palette.Stops)
             {
-                Width = HandleSize,
-                Height = HandleSize,
-                Fill = new SolidColorBrush(ToColor(s.Rgb)),
-                Stroke = new SolidColorBrush(Colors.White),
-                StrokeThickness = 2,
-                Tag = s,
-            };
-            h.PointerPressed += Handle_PointerPressed;
-            h.RightTapped += Handle_RightTapped;
+                var h = new Ellipse
+                {
+                    Width = HandleSize,
+                    Height = HandleSize,
+                    Fill = new SolidColorBrush(ToColor(s.Rgb)),
+                    Stroke = new SolidColorBrush(Colors.White),
+                    StrokeThickness = 2,
+                    Tag = s,
+                };
+                h.PointerPressed += Handle_PointerPressed;
+                h.RightTapped += Handle_RightTapped;
+                HandleCanvas.Children.Add(h);
+                _handles[s] = h;
+            }
+        }
+
+        foreach (var (s, h) in _handles)
+        {
+            ((SolidColorBrush)h.Fill).Color = ToColor(s.Rgb);
             Canvas.SetLeft(h, s.T * w - HandleSize / 2);
             Canvas.SetTop(h, (Host.ActualHeight - HandleSize) / 2);
-            HandleCanvas.Children.Add(h);
-            _handles[s] = h;
         }
     }
 
@@ -110,6 +119,7 @@ public sealed partial class GradientEditor : UserControl
     private void Canvas_PointerMoved(object sender, PointerRoutedEventArgs e)
     {
         if (_pressStop is null || _palette is null) return;
+        if (!e.GetCurrentPoint(HandleCanvas).Properties.IsLeftButtonPressed) return;
         var p = e.GetCurrentPoint(HandleCanvas).Position;
         if (!_dragging)
         {
@@ -129,6 +139,14 @@ public sealed partial class GradientEditor : UserControl
         if (wasDrag) DragCompleted?.Invoke(this, EventArgs.Empty);
         else ShowPicker(stop);
         e.Handled = true;
+    }
+
+    private void Canvas_PointerCaptureLost(object sender, PointerRoutedEventArgs e)
+    {
+        if (_pressStop is null) return;
+        bool wasDrag = _dragging;
+        EndPress(e.Pointer);
+        if (wasDrag) DragCompleted?.Invoke(this, EventArgs.Empty);
     }
 
     private void Canvas_PointerCanceled(object sender, PointerRoutedEventArgs e)
