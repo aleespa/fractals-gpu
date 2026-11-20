@@ -65,6 +65,7 @@ extern "C" FC_API int32_t fc_render(const FcParams *p, uint8_t *out,
   }
 
   std::lock_guard<std::mutex> lock(g_renderMutex);
+  cudaGetLastError(); // clear stale error state from earlier calls
 
   const int width = p->width, height = p->height;
   const int maxIterations = p->maxIterations;
@@ -118,9 +119,9 @@ extern "C" FC_API int32_t fc_render(const FcParams *p, uint8_t *out,
 
   size_t imageSize =
       static_cast<size_t>(width) * static_cast<size_t>(height) * 3;
-  if (cudaMalloc(&dImage.p, imageSize) != cudaSuccess) {
+  if ((e = cudaMalloc(&dImage.p, imageSize)) != cudaSuccess) {
     g_lastError =
-        "could not allocate " + std::to_string(imageSize) + " bytes for the image";
+        "could not allocate " + std::to_string(imageSize) + " bytes for the image: " + cudaGetErrorString(e);
     return FC_ERR_CUDA;
   }
   unsigned char *d_image = (unsigned char *)dImage.p;
@@ -149,9 +150,9 @@ extern "C" FC_API int32_t fc_render(const FcParams *p, uint8_t *out,
           bandImage, width, rows, maxIterations, xMin, xMax, bandYMin,
           bandYMax, p->cx, p->cy, d_palT, d_palRGB, paletteSize, ss);
     }
-    cudaError_t err = cudaDeviceSynchronize();
+    cudaError_t err = cudaGetLastError();
     if (err == cudaSuccess)
-      err = cudaGetLastError();
+      err = cudaDeviceSynchronize();
     if (err != cudaSuccess)
       return cudaFail(err);
     if (cancelFlag && *cancelFlag != 0) {
