@@ -1,26 +1,11 @@
+#include "fractal_core.h"
+
 #include <cmath>
 #include <cstdlib>
-#include <cuda_runtime.h>
+#include <iomanip>
 #include <iostream>
 #include <string>
 #include <vector>
-#include <iomanip>
-
-#define STB_IMAGE_WRITE_IMPLEMENTATION
-#include "../external/stb_image_write.h"
-
-extern __global__ void mandelbrotKernel(unsigned char *image, int width,
-                                        int height, int maxIterations,
-                                        double xMin, double xMax, double yMin,
-                                        double yMax, const float *palT,
-                                        const float *palRGB, int palSize,
-                                        int ss);
-
-extern __global__ void juliaKernel(unsigned char *image, int width, int height,
-                                   int maxIterations, double xMin, double xMax,
-                                   double yMin, double yMax, double cx,
-                                   double cy, const float *palT,
-                                   const float *palRGB, int palSize, int ss);
 
 int main(int argc, char *argv[]) {
   int type = 0; // 0 for mandelbrot, 1 for julia
@@ -128,81 +113,39 @@ int main(int argc, char *argv[]) {
   }
   std::cout << "=========================" << std::endl;
 
-  float *d_palT;
-  float *d_palRGB;
-  cudaMalloc(reinterpret_cast<void **>(&d_palT), paletteSize * sizeof(float));
-  cudaMalloc(reinterpret_cast<void **>(&d_palRGB),
-             paletteSize * 3 * sizeof(float));
-  cudaMemcpy(d_palT, palT.data(), paletteSize * sizeof(float),
-             cudaMemcpyHostToDevice);
-  cudaMemcpy(d_palRGB, palRGB.data(), paletteSize * 3 * sizeof(float),
-             cudaMemcpyHostToDevice);
-
-  double aspectRatio = static_cast<double>(width) / height;
-  double xMin = xCenter - zoom, xMax = xCenter + zoom;
-  double yMin = yCenter - zoom / aspectRatio,
-         yMax = yCenter + zoom / aspectRatio;
-
-  size_t imageSize =
-      static_cast<size_t>(width) * static_cast<size_t>(height) * 3;
-  unsigned char *d_image;
-  if (cudaMalloc(reinterpret_cast<void **>(&d_image), imageSize) !=
-      cudaSuccess) {
-    std::cerr << "CUDA error: could not allocate " << imageSize
-              << " bytes for the image" << std::endl;
-    return 1;
-  }
-  cudaMemset(d_image, 0, imageSize);
-
-  // Render in horizontal bands so no single kernel launch runs long enough
-  // to trigger the Windows GPU watchdog (TDR, ~2 s) on large/supersampled
-  // renders. Each band is rendered as its own "image" with a y-range slice.
-  const int bandRows = 32;
-  dim3 blockSize(16, 16);
-  double dyPerRow = (yMax - yMin) / height;
+  FcParams p = {};
+  p.type = type;
+  p.width = width;
+  p.height = height;
+  p.maxIterations = maxIterations;
+  p.xCenter = xCenter;
+  p.yCenter = yCenter;
+  p.zoom = zoom;
+  p.cx = cx;
+  p.cy = cy;
+  p.ss = ss;
+  p.paletteSize = paletteSize;
+  p.palT = palT.data();
+  p.palRGB = palRGB.data();
 
   std::cout << "Generating fractal on GPU..." << std::endl;
-  for (int row0 = 0; row0 < height; row0 += bandRows) {
-    int rows = (height - row0 < bandRows) ? height - row0 : bandRows;
-    double bandYMin = yMin + dyPerRow * row0;
-    double bandYMax = bandYMin + dyPerRow * rows;
-    unsigned char *bandImage = d_image + static_cast<size_t>(row0) * width * 3;
-    dim3 gridSize((width + blockSize.x - 1) / blockSize.x,
-                  (rows + blockSize.y - 1) / blockSize.y);
-    if (type == 0) {
-      mandelbrotKernel<<<gridSize, blockSize>>>(
-          bandImage, width, rows, maxIterations, xMin, xMax, bandYMin,
-          bandYMax, d_palT, d_palRGB, paletteSize, ss);
-    } else {
-      juliaKernel<<<gridSize, blockSize>>>(
-          bandImage, width, rows, maxIterations, xMin, xMax, bandYMin,
-          bandYMax, cx, cy, d_palT, d_palRGB, paletteSize, ss);
-    }
-    cudaError_t err = cudaDeviceSynchronize();
-    if (err == cudaSuccess)
-      err = cudaGetLastError();
-    if (err != cudaSuccess) {
-      std::cerr << "CUDA error: " << cudaGetErrorString(err) << std::endl;
-      return 1;
-    }
+  std::vector<uint8_t> image;
+  if (width >= 1 && height >= 1 && width <= 16384 && height <= 16384)
+    image.resize(static_cast<size_t>(width) * height * 3);
+  else
+    image.resize(1); // fc_render reports the invalid size below
+
+  if (fc_render(&p, image.data(), FC_FORMAT_RGB8, nullptr) != FC_OK) {
+    std::cerr << "CUDA error: " << fc_last_error() << std::endl;
+    return 1;
   }
 
-  std::vector<unsigned char> image(imageSize);
-  cudaMemcpy(image.data(), d_image, imageSize, cudaMemcpyDeviceToHost);
-
-  if (stbi_write_png(outputFilename.c_str(), width, height, 3, image.data(),
-                     width * 3)) {
+  if (fc_write_png(outputFilename.c_str(), width, height, image.data()) ==
+      FC_OK) {
     std::cout << "Fractal saved in " << outputFilename << std::endl;
   } else {
     std::cerr << "Failed to save image!" << std::endl;
-    cudaFree(d_image);
-    cudaFree(d_palT);
-    cudaFree(d_palRGB);
     return 1;
   }
-
-  cudaFree(d_image);
-  cudaFree(d_palT);
-  cudaFree(d_palRGB);
   return 0;
 }
