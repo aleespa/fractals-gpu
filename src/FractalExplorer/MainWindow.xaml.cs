@@ -103,11 +103,12 @@ public sealed partial class MainWindow : Window
         }
         catch (FractalRenderException ex)
         {
-            if (seq == _renderSeq)
-            {
-                ErrorBar.Message = ex.Message;
-                ErrorBar.IsOpen = true;
-            }
+            if (seq == _renderSeq) ShowError(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            // async void: anything escaping here would tear down the app.
+            if (seq == _renderSeq) ShowError(ex.Message);
         }
         finally
         {
@@ -116,6 +117,14 @@ public sealed partial class MainWindow : Window
             if (ReferenceEquals(_renderCts, cts)) _renderCts = null;
             cts.Dispose();
         }
+    }
+
+    /// <summary>Shows <paramref name="message"/> in the error InfoBar.</summary>
+    internal void ShowError(string message, string title = "Render failed")
+    {
+        ErrorBar.Title = title;
+        ErrorBar.Message = message;
+        ErrorBar.IsOpen = true;
     }
 
     private void ApplyPreview()
@@ -291,6 +300,9 @@ public sealed partial class MainWindow : Window
         SetExportStatus($"Rendering {w} × {h}…", false);
 
         System.Diagnostics.Stopwatch sw = System.Diagnostics.Stopwatch.StartNew();
+        string path = file.Path;
+        bool written = false;
+        bool writeStarted = false;   // once fc_write_png opens the file, any previous content is gone
         try
         {
             // Snapshot UI state before leaving the UI thread.
@@ -301,14 +313,14 @@ public sealed partial class MainWindow : Window
                 ? _view.MaxIterations : (int)Math.Round(ExportIterBox.Value);
             var (palT, palRgb) = _palette.ToNative();
             var req = new RenderRequest(_view.Type, w, h, iter, _view.X, _view.Y, zoom, _view.Cx, _view.Cy, ss, palT, palRgb);
-            string path = file.Path;
-
             await Task.Run(() =>
             {
                 var rgb = GC.AllocateUninitializedArray<byte>(checked(w * h * 3));
                 NativeRenderer.Render(req, PixelFormat.Rgb8, rgb, CancellationToken.None);
+                Volatile.Write(ref writeStarted, true);
                 NativeRenderer.WritePng(path, w, h, rgb);
             });
+            written = true;
             SetExportStatus(string.Create(CultureInfo.InvariantCulture,
                 $"Saved {file.Name} ({sw.Elapsed.TotalSeconds:F1}s)"), false);
         }
@@ -322,19 +334,50 @@ public sealed partial class MainWindow : Window
         }
         finally
         {
+            if (!written) DeleteFailedExport(path, writeStarted);
             ExportButton.Content = "Export PNG";
             ExportButton.IsEnabled = true;
         }
     }
 
+    /// <summary>
+    /// Best-effort cleanup after a failed export so no 0-byte / partial PNG is left behind:
+    /// deletes the target if it is empty (created by the save picker) or if the PNG write had
+    /// already started (contents are partial). A pre-existing non-empty file the render never
+    /// touched is kept. Never throws.
+    /// </summary>
+    private static void DeleteFailedExport(string path, bool writeStarted)
+    {
+        try
+        {
+            var fi = new FileInfo(path);
+            if (fi.Exists && (writeStarted || fi.Length == 0)) fi.Delete();
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Could not delete failed export '{path}': {ex.Message}");
+        }
+    }
+
     private async void CopyCliButton_Click(object sender, RoutedEventArgs e)
     {
-        string cmd = CliCommand.Build(Path.Combine(AppContext.BaseDirectory, "CppFractals.exe"),
-            _view, _palette, DateTime.UtcNow);
-        var dp = new Windows.ApplicationModel.DataTransfer.DataPackage();
-        dp.SetText(cmd);
-        Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(dp);
-        CopyCliButton.Content = "Copied!";
+        string label;
+        try
+        {
+            string cmd = CliCommand.Build(Path.Combine(AppContext.BaseDirectory, "CppFractals.exe"),
+                _view, _palette, DateTime.UtcNow);
+            var dp = new Windows.ApplicationModel.DataTransfer.DataPackage();
+            dp.SetText(cmd);
+            Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(dp);
+            label = "Copied!";
+        }
+        catch (Exception ex)
+        {
+            // e.g. COMException (CLIPBRD_E_CANT_OPEN) when another process holds the clipboard.
+            System.Diagnostics.Debug.WriteLine($"Clipboard error: {ex}");
+            label = "Couldn't access the clipboard";
+        }
+        CopyCliButton.Content = label;
         await Task.Delay(1500);
         CopyCliButton.Content = "Copy CLI Command";
     }
