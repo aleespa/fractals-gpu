@@ -98,9 +98,9 @@
                             <ComboBoxItem Content="Custom…" />
                         </ComboBox>
                         <StackPanel x:Name="ExportCustomPanel" Orientation="Horizontal" Spacing="8" Visibility="Collapsed">
-                            <NumberBox x:Name="ExportWidthBox" Header="Width" Width="120" Minimum="16" Maximum="16384"
+                            <NumberBox x:Name="ExportWidthBox" Header="Width" Width="120" ValidationMode="Disabled"
                                        Value="3840" SpinButtonPlacementMode="Hidden" />
-                            <NumberBox x:Name="ExportHeightBox" Header="Height" Width="120" Minimum="16" Maximum="16384"
+                            <NumberBox x:Name="ExportHeightBox" Header="Height" Width="120" ValidationMode="Disabled"
                                        Value="2160" SpinButtonPlacementMode="Hidden" />
                         </StackPanel>
                         <ComboBox x:Name="ExportSmoothCombo" HorizontalAlignment="Stretch" SelectedIndex="1">

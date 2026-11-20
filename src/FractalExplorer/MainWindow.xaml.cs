@@ -269,31 +269,40 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        var picker = new Windows.Storage.Pickers.FileSavePicker();
-        WinRT.Interop.InitializeWithWindow.Initialize(picker, WinRT.Interop.WindowNative.GetWindowHandle(this));
-        picker.FileTypeChoices.Add("PNG image", new List<string> { ".png" });
-        picker.SuggestedFileName = Path.GetFileNameWithoutExtension(
-            ExportMath.DefaultFileName(_view.Type, w, h, DateTime.Now));
-        var file = await picker.PickSaveFileAsync();
+        Windows.Storage.StorageFile? file;
+        try
+        {
+            var picker = new Windows.Storage.Pickers.FileSavePicker();
+            WinRT.Interop.InitializeWithWindow.Initialize(picker, WinRT.Interop.WindowNative.GetWindowHandle(this));
+            picker.FileTypeChoices.Add("PNG image", new List<string> { ".png" });
+            picker.SuggestedFileName = Path.GetFileNameWithoutExtension(
+                ExportMath.DefaultFileName(_view.Type, w, h, DateTime.Now));
+            file = await picker.PickSaveFileAsync();
+        }
+        catch (Exception ex)
+        {
+            SetExportStatus(ex.Message, true);
+            return;
+        }
         if (file is null) return;
 
         ExportButton.IsEnabled = false;
         ExportButton.Content = "Rendering…";
         SetExportStatus($"Rendering {w} × {h}…", false);
 
-        // Snapshot UI state before leaving the UI thread.
-        double viewAspect = ViewArea.ActualWidth / Math.Max(1, ViewArea.ActualHeight);
-        double zoom = ExportMath.AdjustZoomForAspect(_view.Zoom, w, h, viewAspect);
-        int ss = ExportMath.SupersampleForIndex(ExportSmoothCombo.SelectedIndex);
-        int iter = double.IsNaN(ExportIterBox.Value) || ExportIterBox.Value <= 0
-            ? _view.MaxIterations : (int)Math.Round(ExportIterBox.Value);
-        var (palT, palRgb) = _palette.ToNative();
-        var req = new RenderRequest(_view.Type, w, h, iter, _view.X, _view.Y, zoom, _view.Cx, _view.Cy, ss, palT, palRgb);
-        string path = file.Path;
-        var sw = System.Diagnostics.Stopwatch.StartNew();
-
+        System.Diagnostics.Stopwatch sw = System.Diagnostics.Stopwatch.StartNew();
         try
         {
+            // Snapshot UI state before leaving the UI thread.
+            double viewAspect = ViewArea.ActualWidth / Math.Max(1, ViewArea.ActualHeight);
+            double zoom = ExportMath.AdjustZoomForAspect(_view.Zoom, w, h, viewAspect);
+            int ss = ExportMath.SupersampleForIndex(ExportSmoothCombo.SelectedIndex);
+            int iter = double.IsNaN(ExportIterBox.Value) || ExportIterBox.Value <= 0
+                ? _view.MaxIterations : (int)Math.Round(ExportIterBox.Value);
+            var (palT, palRgb) = _palette.ToNative();
+            var req = new RenderRequest(_view.Type, w, h, iter, _view.X, _view.Y, zoom, _view.Cx, _view.Cy, ss, palT, palRgb);
+            string path = file.Path;
+
             await Task.Run(() =>
             {
                 var rgb = GC.AllocateUninitializedArray<byte>(checked(w * h * 3));
@@ -307,8 +316,7 @@ public sealed partial class MainWindow : Window
         {
             SetExportStatus($"Not enough memory for a {w} × {h} export.", true);
         }
-        catch (Exception ex) when (ex is FractalRenderException or ArgumentException
-                                       or IOException or UnauthorizedAccessException)
+        catch (Exception ex)
         {
             SetExportStatus(ex.Message, true);
         }
