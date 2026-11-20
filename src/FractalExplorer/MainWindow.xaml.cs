@@ -40,7 +40,12 @@ public sealed partial class MainWindow : Window
         _renderTimer.IsRepeating = false;
         _renderTimer.Tick += (_, _) => StartRender();
 
-        _palette.Changed += (_, _) => RequestRender(150);
+        PaletteEditor.Palette = _palette;
+        _palette.Changed += (_, _) =>
+        {
+            if (!PaletteEditor.IsDragging) RequestRender(150);
+        };
+        PaletteEditor.DragCompleted += (_, _) => RequestRender(0);
 
         SyncControls();
         _ready = true;
