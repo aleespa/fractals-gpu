@@ -121,6 +121,33 @@ public class NativeRendererTests
         Assert.Equal(new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A }, head);
         Directory.Delete(dir, true);
     }
+
+    [Fact]
+    public void Cli_WritesNonAsciiOutputPath()
+    {
+        var dir = TempDir();
+        var path = Path.Combine(dir, "salida é ñ.png");
+        var psi = new ProcessStartInfo(Path.Combine(AppContext.BaseDirectory, "CppFractals.exe"))
+        {
+            WorkingDirectory = dir,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+        };
+        foreach (var a in new[] { "0", "16", "16", "50", "-0.5", "0", "1.5", "0", "0", path })
+            psi.ArgumentList.Add(a);
+        using (var p = Process.Start(psi)!)
+        {
+            p.StandardOutput.ReadToEnd();
+            p.StandardError.ReadToEnd();
+            p.WaitForExit();
+            Assert.Equal(0, p.ExitCode);
+        }
+        Assert.True(File.Exists(path), "CLI did not create " + path);
+        Assert.Single(Directory.GetFiles(dir));
+        Directory.Delete(dir, true);
+    }
 }
 
 public class FcParamsLayoutTests

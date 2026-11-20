@@ -75,6 +75,9 @@
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <Manifest Include="FractalCli.manifest" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\FractalCore\FractalCore.vcxproj">
       <Project>{7C1B6E52-3A0D-4E8F-9B14-5D2A8F6C3E01}</Project>
     </ProjectReference>
