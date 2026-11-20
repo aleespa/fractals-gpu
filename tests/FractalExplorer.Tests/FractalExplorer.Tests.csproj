@@ -14,5 +14,10 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\FractalExplorer.Core\FractalExplorer.Core.csproj" />
+    <ProjectReference Include="..\..\src\FractalCli\FractalCli.vcxproj" ReferenceOutputAssembly="false" Condition="'$(MSBuildRuntimeType)' == 'Full'" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\x64\$(Configuration)\FractalCore.dll" Link="FractalCore.dll" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\x64\$(Configuration)\CppFractals.exe" Link="CppFractals.exe" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>
