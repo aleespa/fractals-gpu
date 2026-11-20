@@ -1,77 +1,62 @@
 # CppFractals Explorer
 
-An ultra-fast, CUDA-accelerated C++ application for generating beautiful Mandelbrot set images, coupled with a pristine, modern web-based UI for effortless exploration of the complex plane.
+A CUDA-accelerated Mandelbrot/Julia renderer with a native WinUI 3 desktop explorer and a command-line renderer.
 
----
-
-## Features
-
-**Core C++ Generator:**
-- Generates fractal images in the complex plane utilizing lightning-fast CUDA parallel processing.
-- Outputs high-resolution PNG images natively (using `stb_image_write.h`).
-- Highly customizable parameters: width, height, maximum iterations, coordinates, and zoom limits.
-
-**Web Explorer UI:**
-- **Zero-Latency Navigation:** Highly responsive exploration utilizing GPU-accelerated CSS transforms.
-- **Interactive Controls:** Seamless click-and-drag panning, and precise scroll-to-zoom tracking your mouse cursor natively.
-- **Glassmorphic Design:** A beautiful, responsive dark-mode overlay to manipulate generation limits instantly.
-
----
-
-## Requirements
-
-### To Build the Core C++ Engine
-- **Visual Studio 2019 or later** (or another C++17-compatible compiler)
-- NVIDIA GPU with **CUDA Toolkit** installed
-- No external dependencies except [`stb_image_write.h`](https://github.com/nothings/stb) (included).
-
-### To Run the Web UI
-- **Node.js** (v14+ recommended)
-- **npm** (included with Node.js)
-
----
-
-## Getting Started
-
-### 1. Build the C++ Backend
-1. Clone or download this repository.
-2. Open `CppFractals.sln` in Visual Studio.
-3. Ensure your build configuration is set to **Release** and **x64**.
-4. Build the solution (`Build → Build Solution` or press **Ctrl + Shift + B**). This compiles `CppFractals.exe` into the `x64\Release` folder.
-
-### 2. Run the Web Interface
-Once the executable is built, you can spin up the web explorer:
-
-1. Open your terminal in the root directory of this project (`CppFractals`).
-2. Install the necessary Node.js dependencies:
-   ```bash
-   npm install express
-   ```
-3. Start the server:
-   ```bash
-   node server.js
-   ```
-4. Open your web browser and navigate to:
-   **`http://localhost:3000`**
-
----
-
-## Command Line Usage (Advanced)
-
-If you prefer generating standalone files via CLI without the web UI, you can call the compiled executable directly.
-
-```bash
-x64\Release\CppFractals.exe <width> <height> <maxIterations> <modifier> <xCenter> <yCenter> <zoomFactor> <outputFilename>
-```
-
-**Example:**
-```bash
-x64\Release\CppFractals.exe 3840 2160 400 2.0 -1.4002 0.0 0.10 my_mandelbrot.png
-```
-
----
-
-## Example Output
+- **FractalExplorer.exe**: live GPU preview, drag to pan, scroll to zoom, gradient palette editor, PNG export, and a button that copies the equivalent CLI command.
+- **CppFractals.exe**: command-line renderer for batch or very large images.
 
 ![Example Mandelbrot](./examples/screenshot_1.png)
 ![Example Julia](./examples/screenshot_2.png)
+
+## Prerequisites
+
+- Windows 10/11 x64 with an NVIDIA GPU and a current NVIDIA driver
+- Visual Studio 2022 with the workloads "Desktop development with C++", ".NET desktop development" and "WinUI application development"
+- CUDA Toolkit 12.9 (with its Visual Studio build customization)
+
+## Build
+
+From a VS 2022 Developer prompt:
+
+```
+msbuild CppFractals.sln /restore /m /p:Configuration=Release /p:Platform=x64
+```
+
+## Run
+
+`src\FractalExplorer\bin\x64\Release\net8.0-windows10.0.19041.0\win-x64\FractalExplorer.exe`
+
+That folder (FractalExplorer.exe, FractalCore.dll, CppFractals.exe, runtime) is self-contained and can be copied anywhere. Only an NVIDIA driver is required on the target machine.
+
+## Command line
+
+```
+x64\Release\CppFractals.exe <type> <width> <height> <maxIter> <xCenter> <yCenter> <zoom> <cx> <cy> <output.png> [--ss N] [t1 hex1 t2 hex2 ...]
+```
+
+- `type`: 0 = Mandelbrot, 1 = Julia (`cx`, `cy` is the Julia constant; ignored for Mandelbrot)
+- `zoom`: half-width of the view in the complex plane
+- `--ss N`: N x N supersampling per pixel
+- Palette stops: `t` in [0,1] followed by a hex color without `#`; omit for the built-in palette
+
+Example:
+
+```
+x64\Release\CppFractals.exe 0 3840 2160 400 -1.4002 0 0.1 0 0 my_mandelbrot.png
+```
+
+The Explorer's "copy command" button puts a 5000x5000 command like this on the clipboard. Running it from the repo root creates `output_<timestamp>.png` files there. They are not gitignored; do not commit them.
+
+## Tests
+
+After a full build (the tests copy the prebuilt native DLL and exe):
+
+```
+dotnet test tests\FractalExplorer.Tests
+```
+
+To check that the renderer output is pixel-identical to a saved baseline exe:
+
+```
+pwsh -File tools\compare-baseline.ps1 -Baseline <path\to\baseline\CppFractals.exe> -Candidate x64\Release\CppFractals.exe
+```
