@@ -42,6 +42,13 @@ const char *const kCudaHint = "\xE2\x80\x94 try fewer iterations or less smoothi
 extern "C" FC_API int32_t fc_render(const FcParams *p, uint8_t *out,
                                     int32_t format,
                                     const volatile int32_t *cancelFlag) {
+  return fc_render_progress(p, out, format, cancelFlag, nullptr, nullptr);
+}
+
+extern "C" FC_API int32_t fc_render_progress(const FcParams *p, uint8_t *out,
+                                             int32_t format,
+                                             const volatile int32_t *cancelFlag,
+                                             FcProgressFn cb, void *user) {
   g_lastError.clear();
   if (!p || !out) {
     g_lastError = "Null parameter or output buffer";
@@ -170,6 +177,8 @@ extern "C" FC_API int32_t fc_render(const FcParams *p, uint8_t *out,
       err = cudaDeviceSynchronize();
     if (err != cudaSuccess)
       return cudaFail(err);
+    if (cb)
+      cb(row0 + rows, height, user);
     if (cancelFlag && *cancelFlag != 0) {
       g_lastError = "Cancelled";
       return FC_CANCELLED;

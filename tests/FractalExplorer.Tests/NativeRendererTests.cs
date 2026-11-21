@@ -148,6 +148,37 @@ public class NativeRendererTests
         Assert.Single(Directory.GetFiles(dir));
         Directory.Delete(dir, true);
     }
+
+    [Fact]
+    public void RenderWithProgress_ReportsMonotonicToOne()
+    {
+        var req = Req(FractalType.Mandelbrot, 64, 100, 100, -0.5, 0, 1.5, 0, 0, 1, true);
+        var vals = new List<double>();
+        Assert.True(NativeRenderer.Render(req, PixelFormat.Rgb8, new byte[64 * 100 * 3], vals.Add, CancellationToken.None));
+        Assert.Equal(4, vals.Count);
+        for (int i = 1; i < vals.Count; i++) Assert.True(vals[i] >= vals[i - 1]);
+        Assert.Equal(1.0, vals[^1]);
+    }
+
+    [Fact]
+    public void RenderWithProgress_CancelFromCallback_ReturnsFalse()
+    {
+        var req = Req(FractalType.Mandelbrot, 64, 256, 100, -0.5, 0, 1.5, 0, 0, 1, true);
+        using var cts = new CancellationTokenSource();
+        int count = 0;
+        bool ok = NativeRenderer.Render(req, PixelFormat.Rgb8, new byte[64 * 256 * 3], _ => { count++; cts.Cancel(); }, cts.Token);
+        Assert.False(ok);
+        Assert.True(count < 8);
+    }
+
+    [Fact]
+    public void RenderWithProgress_ThrowingCallback_CancelsWithoutCrash()
+    {
+        var req = Req(FractalType.Mandelbrot, 64, 256, 100, -0.5, 0, 1.5, 0, 0, 1, true);
+        bool ok = NativeRenderer.Render(req, PixelFormat.Rgb8, new byte[64 * 256 * 3],
+            _ => throw new InvalidOperationException("boom"), CancellationToken.None);
+        Assert.False(ok);
+    }
 }
 
 public class FcParamsLayoutTests
