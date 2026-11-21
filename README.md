@@ -9,8 +9,8 @@ A CUDA-accelerated Mandelbrot/Julia renderer with a native WinUI 3 desktop explo
 
 - A navigation rail on the left switches between the **Fractal**, **Colours** and **Settings** panes.
 - The current coordinates are shown in an overlay at the bottom right of the preview.
-- **Save** (top right, Ctrl+S) renders and writes a PNG to the save folder. Its dropdown, **Save as** (Ctrl+Shift+S), opens a dialog for size, iterations and a destination. Progress is shown in a strip with a Cancel button. Save as iterations are capped at 100000.
-- Settings are stored in `%LOCALAPPDATA%\FractalExplorer\settings.json`. The default save folder is `%USERPROFILE%\Pictures\Fractal Explorer`.
+- **Save** (top right, Ctrl+S) renders and writes a PNG to the save folder. Its dropdown, **Save as** (Ctrl+Shift+S), opens a dialog for size, smoothing, iterations and a destination. Progress is shown in a strip with a Cancel button. Save as iterations are capped at 100000.
+- Settings are stored in `%LOCALAPPDATA%\FractalExplorer\settings.json`. The default save folder is `Fractal Explorer` inside your Pictures folder (the Windows known folder, which may be redirected, e.g. to OneDrive).
 
 ![Example Mandelbrot](./examples/screenshot_1.png)
 ![Example Julia](./examples/screenshot_2.png)
@@ -52,7 +52,7 @@ Example:
 x64\Release\CppFractals.exe 0 3840 2160 400 -1.4002 0 0.1 0 0 my_mandelbrot.png
 ```
 
-Running the CLI from the repo root can create `output_*.png` files there. They are not gitignored; do not commit them.
+The CLI writes to whatever output path it is given. Renders written into the repo root (such as `output_*.png`) are not gitignored; do not commit them.
 
 ## Tests
 

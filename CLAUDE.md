@@ -33,7 +33,7 @@ VS 2022 (not 2026) with workloads "Desktop development with C++", ".NET desktop 
 
 ## Settings
 
-File: `%LOCALAPPDATA%\FractalExplorer\settings.json`. Default save folder: `%USERPROFILE%\Pictures\Fractal Explorer`. Save as iterations are capped at 100000.
+File: `%LOCALAPPDATA%\FractalExplorer\settings.json`. Default save folder: `Fractal Explorer` inside the user's Pictures known folder (may be redirected). Save as offers size, smoothing, iterations and a destination. Save as iterations are capped at 100000.
 
 ## Invariants
 
@@ -43,5 +43,5 @@ File: `%LOCALAPPDATA%\FractalExplorer\settings.json`. Default save folder: `%USE
 - C# `FcParams` must mirror `fractal_core.h` (size 80); a test checks this. Changing parameters means updating the header, `render.cu`, `NativeRenderer.cs` and the CLI.
 - C# -> vcxproj ProjectReferences carry the `MSBuildRuntimeType=='Full'` condition.
 - Adding a fractal type: a kernel in `Fractal.cu`, a dispatch branch in `render.cu`, and `FractalType` in Core.
-- `output_*.png` files in the repo root come from running the CLI in the repo root; `.gitignore` does not ignore them, so do not commit them.
+- The CLI writes to whatever output path it is given; renders written into the repo root (such as the owner's `output_*.png`) are not gitignored, so do not commit them.
 
