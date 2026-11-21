@@ -2,6 +2,7 @@ using System.Buffers;
 using System.Globalization;
 using System.Runtime.InteropServices.WindowsRuntime;
 using FractalExplorer.Core;
+using FractalExplorer.Dialogs;
 using FractalExplorer.Panes;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Input;
@@ -39,6 +40,12 @@ public sealed partial class MainWindow : Window
 
     private bool _panning;
     private Windows.Foundation.Point _lastPointer;
+
+    private const string RenderErrorTitle = "Render failed";
+
+    private CancellationTokenSource? _saveCts;
+    private bool _saving;            // a save is running (Save disabled, no second save)
+    private bool _saveDialogOpen;    // only one ContentDialog may be open at a time
 
     private string? _successFilePath;
     private object? _currentNavItem;   // container of the selected rail item, updated on SelectionChanged
@@ -230,7 +237,7 @@ public sealed partial class MainWindow : Window
                 FractalImage.Source = _bitmap;
                 _preview.Reset();
                 ApplyPreview();
-                ErrorBar.IsOpen = false;
+                if (ErrorBar.Title == RenderErrorTitle) ErrorBar.IsOpen = false;   // keep save errors visible
             }
         }
         catch (OperationCanceledException)
@@ -252,7 +259,7 @@ public sealed partial class MainWindow : Window
     }
 
     /// <summary>Shows <paramref name="message"/> in the error InfoBar.</summary>
-    internal void ShowError(string message, string title = "Render failed")
+    internal void ShowError(string message, string title = RenderErrorTitle)
     {
         ErrorBar.Title = title;
         ErrorBar.Message = message;
@@ -281,6 +288,199 @@ public sealed partial class MainWindow : Window
         catch (Exception ex)
         {
             ShowError(ex.Message, "Could not open folder");
+        }
+    }
+
+    /// <summary>Shows <paramref name="title"/> in the informational InfoBar.</summary>
+    private void ShowInfo(string title)
+    {
+        InfoMessageBar.Title = title;
+        InfoMessageBar.IsOpen = true;
+    }
+
+    // ── Saving ───────────────────────────────────────────────────
+
+    private void SaveButton_Click(SplitButton sender, SplitButtonClickEventArgs args) => QuickSave();
+
+    private void SaveAsItem_Click(object sender, RoutedEventArgs e) => SaveAs();
+
+    private void QuickSaveAccelerator_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    {
+        args.Handled = true;
+        QuickSave();
+    }
+
+    private void SaveAsAccelerator_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    {
+        args.Handled = true;
+        SaveAs();
+    }
+
+    private void CancelSave_Click(object sender, RoutedEventArgs e) => _saveCts?.Cancel();
+
+    // Keep the top bars (progress strip, InfoBars) left of the Save button so they never overlap it.
+    private void SaveHost_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        double right = e.NewSize.Width + SaveHost.Margin.Right + 16;
+        TopBars.Margin = new Thickness(16, 16, right, 0);
+    }
+
+    /// <summary>Saves with the Settings defaults to a unique file in the save folder.</summary>
+    private void QuickSave()
+    {
+        if (_saving || _saveDialogOpen) return;
+        string path;
+        try
+        {
+            path = SavePlanner.QuickSavePath(Settings, View.Type, DateTime.Now);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException
+                                       or NotSupportedException)
+        {
+            ShowError($"Couldn't use the save folder: {ex.Message.TrimEnd('.', ' ')}. "
+                      + "Try Save as… or change the folder in Settings.", "Save failed");
+            return;
+        }
+        catch (Exception ex)
+        {
+            ShowError(ex.Message, "Save failed");
+            return;
+        }
+        var spec = new SaveSpec(Settings.SaveWidth, Settings.SaveHeight,
+            ExportMath.SupersampleForIndex(Settings.SaveSmoothingIndex), View.MaxIterations, path);
+        RunSave(spec);
+    }
+
+    /// <summary>Opens the Save as dialog and, if confirmed, saves to the chosen file.</summary>
+    private async void SaveAs()
+    {
+        if (_saving || _saveDialogOpen || Content?.XamlRoot is null) return;
+        _saveDialogOpen = true;
+        try
+        {
+            var dialog = new SaveAsDialog(Settings, View.Type, View.MaxIterations,
+                WinRT.Interop.WindowNative.GetWindowHandle(this))
+            {
+                XamlRoot = Content.XamlRoot,
+                RequestedTheme = (Content as FrameworkElement)?.RequestedTheme ?? ElementTheme.Default,
+            };
+            await dialog.ShowAsync();
+            if (dialog.Result is { } spec) RunSave(spec);
+        }
+        catch (Exception ex)
+        {
+            ShowError(ex.Message, "Save failed");
+        }
+        finally
+        {
+            _saveDialogOpen = false;
+        }
+    }
+
+    /// <summary>
+    /// Renders <paramref name="spec"/> on the Save lane with a progress strip and Cancel, then writes the PNG.
+    /// On cancel or failure, removes the target if it is empty (the picker's placeholder) or partially written.
+    /// </summary>
+    private async void RunSave(SaveSpec spec)
+    {
+        if (_saving) return;
+        _saving = true;
+        SaveButton.IsEnabled = false;
+        var cts = new CancellationTokenSource();
+        _saveCts = cts;
+
+        string path = spec.Path;
+        int w = spec.Width, h = spec.Height;
+        bool written = false;
+        bool writeStarted = false;   // once fc_write_png opens the file, any previous content is gone
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        try
+        {
+            // Snapshot everything the job needs on the UI thread.
+            double viewAspect = CanvasHost.ActualHeight > 0 ? CanvasHost.ActualWidth / CanvasHost.ActualHeight : 0;
+            var req = SavePlanner.BuildRequest(View, Palette.ToNative(), spec, viewAspect);
+            var dq = DispatcherQueue;
+
+            SuccessBar.IsOpen = false;
+            InfoMessageBar.IsOpen = false;
+            UpdateSaveProgress(cts, 0, w, h);
+            SaveStrip.Visibility = Visibility.Visible;
+
+            int lastPct = -1;   // touched only by the render thread
+            bool done = await Renderer.RunAsync(RenderLane.Save, ct =>
+            {
+                byte[] rgb = GC.AllocateUninitializedArray<byte>(checked(w * h * 3));
+                // Runs on the render thread with the native render lock held: only post to the UI thread.
+                bool completed = NativeRenderer.Render(req, PixelFormat.Rgb8, rgb, p =>
+                {
+                    int pct = (int)Math.Clamp(p * 100, 0, 100);
+                    if (pct == lastPct) return;
+                    lastPct = pct;
+                    dq.TryEnqueue(() => UpdateSaveProgress(cts, pct, w, h));
+                }, ct);
+                if (!completed) return false;
+                Volatile.Write(ref writeStarted, true);
+                NativeRenderer.WritePng(path, w, h, rgb);
+                return true;
+            }, cts.Token);
+
+            if (done)
+            {
+                written = true;
+                ShowSuccess(string.Create(CultureInfo.InvariantCulture,
+                    $"Saved {Path.GetFileName(path)} ({sw.Elapsed.TotalSeconds:F1}s)"), path);
+            }
+            else
+            {
+                ShowInfo("Save cancelled");
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            ShowInfo("Save cancelled");   // cancelled while waiting for the GPU
+        }
+        catch (OutOfMemoryException)
+        {
+            ShowError($"Not enough memory for a {w} × {h} save.", "Save failed");
+        }
+        catch (Exception ex)
+        {
+            ShowError(ex.Message, "Save failed");
+        }
+        finally
+        {
+            if (!written) DeleteFailedSave(path, Volatile.Read(ref writeStarted));
+            SaveStrip.Visibility = Visibility.Collapsed;
+            SaveButton.IsEnabled = true;
+            _saving = false;
+            if (ReferenceEquals(_saveCts, cts)) _saveCts = null;
+            cts.Dispose();
+        }
+    }
+
+    private void UpdateSaveProgress(CancellationTokenSource cts, int pct, int w, int h)
+    {
+        if (!ReferenceEquals(_saveCts, cts)) return;   // a late update from a finished save
+        SaveProgress.Value = pct;
+        SaveProgressText.Text = string.Create(CultureInfo.InvariantCulture, $"Saving {w} × {h}… {pct}%");
+    }
+
+    /// <summary>
+    /// Best-effort cleanup after a cancelled or failed save so no 0-byte / partial PNG is left behind:
+    /// deletes the target if it is empty (created by the save picker) or if the PNG write had already
+    /// started (contents are partial). A pre-existing non-empty file the save never touched is kept;
+    /// quick save never creates the file before writing. Never throws.
+    /// </summary>
+    private static void DeleteFailedSave(string path, bool writeStarted)
+    {
+        try
+        {
+            var fi = new FileInfo(path);
+            if (fi.Exists && (writeStarted || fi.Length == 0)) fi.Delete();
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Could not delete failed save '{path}': {ex.Message}");
         }
     }
 

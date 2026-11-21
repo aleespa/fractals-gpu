@@ -75,16 +75,89 @@
                 </Border>
             </Grid>
 
-            <!-- Top-right of the canvas: Task 6 puts the Save SplitButton here. -->
-            <Grid x:Name="SaveHost" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="16" />
+            <!-- Top-right of the canvas: Save (quick save) with a "Save as..." flyout. -->
+            <Grid x:Name="SaveHost" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="16" SizeChanged="SaveHost_SizeChanged">
+                <SplitButton x:Name="SaveButton" Click="SaveButton_Click" AutomationProperties.Name="Save">
+                    <SplitButton.Resources>
+                        <!-- Accent look (WinUI has no accent SplitButton style; AccentButtonStyle targets Button):
+                             map the normal states onto the accent brushes the template uses when checked. -->
+                        <ResourceDictionary>
+                            <ResourceDictionary.ThemeDictionaries>
+                                <ResourceDictionary x:Key="Default">
+                                    <StaticResource x:Key="SplitButtonBackground" ResourceKey="AccentFillColorDefaultBrush" />
+                                    <StaticResource x:Key="SplitButtonBackgroundPointerOver" ResourceKey="AccentFillColorSecondaryBrush" />
+                                    <StaticResource x:Key="SplitButtonBackgroundPressed" ResourceKey="AccentFillColorTertiaryBrush" />
+                                    <StaticResource x:Key="SplitButtonBackgroundDisabled" ResourceKey="AccentFillColorDisabledBrush" />
+                                    <StaticResource x:Key="SplitButtonForeground" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
+                                    <StaticResource x:Key="SplitButtonForegroundPointerOver" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
+                                    <StaticResource x:Key="SplitButtonForegroundPressed" ResourceKey="TextOnAccentFillColorSecondaryBrush" />
+                                    <StaticResource x:Key="SplitButtonForegroundDisabled" ResourceKey="TextOnAccentFillColorDisabledBrush" />
+                                    <StaticResource x:Key="SplitButtonBorderBrush" ResourceKey="AccentControlElevationBorderBrush" />
+                                    <StaticResource x:Key="SplitButtonBorderBrushPointerOver" ResourceKey="AccentControlElevationBorderBrush" />
+                                    <StaticResource x:Key="SplitButtonBorderBrushPressed" ResourceKey="ControlFillColorTransparentBrush" />
+                                    <StaticResource x:Key="SplitButtonBorderBrushDisabled" ResourceKey="ControlFillColorTransparentBrush" />
+                                    <StaticResource x:Key="SplitButtonBorderBrushDivider" ResourceKey="ControlStrokeColorOnAccentTertiaryBrush" />
+                                </ResourceDictionary>
+                                <ResourceDictionary x:Key="Light">
+                                    <StaticResource x:Key="SplitButtonBackground" ResourceKey="AccentFillColorDefaultBrush" />
+                                    <StaticResource x:Key="SplitButtonBackgroundPointerOver" ResourceKey="AccentFillColorSecondaryBrush" />
+                                    <StaticResource x:Key="SplitButtonBackgroundPressed" ResourceKey="AccentFillColorTertiaryBrush" />
+                                    <StaticResource x:Key="SplitButtonBackgroundDisabled" ResourceKey="AccentFillColorDisabledBrush" />
+                                    <StaticResource x:Key="SplitButtonForeground" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
+                                    <StaticResource x:Key="SplitButtonForegroundPointerOver" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
+                                    <StaticResource x:Key="SplitButtonForegroundPressed" ResourceKey="TextOnAccentFillColorSecondaryBrush" />
+                                    <StaticResource x:Key="SplitButtonForegroundDisabled" ResourceKey="TextOnAccentFillColorDisabledBrush" />
+                                    <StaticResource x:Key="SplitButtonBorderBrush" ResourceKey="AccentControlElevationBorderBrush" />
+                                    <StaticResource x:Key="SplitButtonBorderBrushPointerOver" ResourceKey="AccentControlElevationBorderBrush" />
+                                    <StaticResource x:Key="SplitButtonBorderBrushPressed" ResourceKey="ControlFillColorTransparentBrush" />
+                                    <StaticResource x:Key="SplitButtonBorderBrushDisabled" ResourceKey="ControlFillColorTransparentBrush" />
+                                    <StaticResource x:Key="SplitButtonBorderBrushDivider" ResourceKey="ControlStrokeColorOnAccentTertiaryBrush" />
+                                </ResourceDictionary>
+                            </ResourceDictionary.ThemeDictionaries>
+                        </ResourceDictionary>
+                    </SplitButton.Resources>
+                    <SplitButton.KeyboardAccelerators>
+                        <KeyboardAccelerator Key="S" Modifiers="Control" Invoked="QuickSaveAccelerator_Invoked" />
+                        <KeyboardAccelerator Key="S" Modifiers="Control,Shift" Invoked="SaveAsAccelerator_Invoked" />
+                    </SplitButton.KeyboardAccelerators>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <FontIcon Glyph="&#xE74E;" FontSize="16" />
+                        <TextBlock Text="Save" />
+                    </StackPanel>
+                    <SplitButton.Flyout>
+                        <MenuFlyout Placement="BottomEdgeAlignedRight">
+                            <MenuFlyoutItem Text="Save as…" Click="SaveAsItem_Click"
+                                            KeyboardAcceleratorTextOverride="Ctrl+Shift+S" />
+                        </MenuFlyout>
+                    </SplitButton.Flyout>
+                </SplitButton>
+            </Grid>
 
             <!-- Settings page; covers the canvas while Settings is selected. -->
             <Grid x:Name="SettingsHost" Visibility="Collapsed"
                   Background="{ThemeResource SolidBackgroundFillColorBaseBrush}" />
 
-            <StackPanel VerticalAlignment="Top" HorizontalAlignment="Center" MaxWidth="640"
+            <StackPanel x:Name="TopBars" VerticalAlignment="Top" HorizontalAlignment="Stretch" MaxWidth="640"
                         Margin="16,16,16,0" Spacing="8">
+                <!-- Save progress strip (visible only while a save runs). -->
+                <Border x:Name="SaveStrip" Visibility="Collapsed" Padding="12,8"
+                        CornerRadius="8" BorderThickness="1"
+                        Background="{ThemeResource AcrylicBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}">
+                    <Grid ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Spacing="6" VerticalAlignment="Center">
+                            <TextBlock x:Name="SaveProgressText" TextTrimming="CharacterEllipsis" />
+                            <ProgressBar x:Name="SaveProgress" Minimum="0" Maximum="100" Value="0" />
+                        </StackPanel>
+                        <Button Grid.Column="1" Content="Cancel" VerticalAlignment="Center" Click="CancelSave_Click" />
+                    </Grid>
+                </Border>
                 <InfoBar x:Name="ErrorBar" Severity="Error" Title="Render failed" IsOpen="False" IsClosable="True" />
+                <InfoBar x:Name="InfoMessageBar" Severity="Informational" IsOpen="False" IsClosable="True" />
                 <InfoBar x:Name="SuccessBar" Severity="Success" IsOpen="False" IsClosable="True">
                     <InfoBar.ActionButton>
                         <HyperlinkButton x:Name="OpenFolderButton" Content="Open folder" Click="OpenFolderButton_Click" />
