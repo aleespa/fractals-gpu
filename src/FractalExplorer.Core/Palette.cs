@@ -1,5 +1,3 @@
-using System.Globalization;
-
 namespace FractalExplorer.Core;
 
 public sealed class PaletteStop
@@ -110,16 +108,5 @@ public sealed class Palette
             rgb[i * 3 + 2] = (c & 0xFF) / 255f;
         }
         return (t, rgb);
-    }
-
-    public IReadOnlyList<string> ToCliArgs()
-    {
-        var r = new List<string>(_stops.Count * 2);
-        foreach (var s in _stops)
-        {
-            r.Add(s.T.ToString("F6", CultureInfo.InvariantCulture));
-            r.Add(s.Rgb.ToString("X6", CultureInfo.InvariantCulture));
-        }
-        return r;
     }
 }

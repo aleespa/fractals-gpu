@@ -55,11 +55,6 @@ public class PaletteTests
     }
 
     [Fact]
-    public void ToCliArgs_FormatsSixDecimalsUppercaseHex()
-        => Assert.Equal(new[] { "0.000000", "000000", "0.250000", "2130C8", "0.500000", "8C0021", "0.750000", "FF9900", "1.000000", "FFFFFF" },
-            Palette.CreateDefault().ToCliArgs());
-
-    [Fact]
     public void ToNative_MatchesCliParsing()
     {
         var p = Palette.CreateDefault();
