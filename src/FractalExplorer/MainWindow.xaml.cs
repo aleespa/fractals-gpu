@@ -19,10 +19,16 @@ public sealed partial class MainWindow : Window
     internal Palette Palette { get; } = Palette.CreateDefault();
     internal RenderQueue Renderer { get; } = new();
 
+    private readonly SettingsStore _settingsStore = new(SettingsStore.DefaultPath);
+
+    /// <summary>Current app settings; always normalized.</summary>
+    internal AppSettings Settings { get; private set; }
+
     private readonly PreviewTransform _preview = new();
     private readonly DispatcherQueueTimer _renderTimer;
     private readonly FractalPane _fractalPane;
     private readonly ColoursPane _coloursPane;
+    private readonly SettingsView _settingsView;
     private readonly RectangleGeometry _canvasClip = new();
 
     private CancellationTokenSource? _renderCts;
@@ -44,6 +50,7 @@ public sealed partial class MainWindow : Window
 
     public MainWindow()
     {
+        Settings = _settingsStore.Load().Normalized();
         InitializeComponent();
         SystemBackdrop = new MicaBackdrop();
         AppWindow.Resize(new Windows.Graphics.SizeInt32(1400, 900));
@@ -54,6 +61,9 @@ public sealed partial class MainWindow : Window
 
         _fractalPane = new FractalPane(this);
         _coloursPane = new ColoursPane(this);
+        _settingsView = new SettingsView(this);
+        SettingsHost.Children.Add(_settingsView);
+        ApplyTheme();
 
         CanvasHost.Clip = _canvasClip;
         NavView.SelectedItem = FractalNavItem;
@@ -83,6 +93,7 @@ public sealed partial class MainWindow : Window
         if (args.IsSettingsSelected)
         {
             PanelContent.Content = null;
+            NavView.IsPaneOpen = false;   // the side panel has nothing to show for Settings
             SettingsHost.Visibility = Visibility.Visible;
             return;
         }
@@ -133,6 +144,27 @@ public sealed partial class MainWindow : Window
             if (found is not null) return found;
         }
         return null;
+    }
+
+    // ── Settings ─────────────────────────────────────────────────
+
+    /// <summary>Applies <paramref name="change"/> to the settings, normalizes, saves and re-applies the theme.</summary>
+    internal void UpdateSettings(Func<AppSettings, AppSettings> change)
+    {
+        Settings = change(Settings).Normalized();
+        _settingsStore.Save(Settings);
+        ApplyTheme();
+    }
+
+    private void ApplyTheme()
+    {
+        if (Content is FrameworkElement root)
+            root.RequestedTheme = Settings.Theme switch
+            {
+                AppTheme.Light => ElementTheme.Light,
+                AppTheme.Dark => ElementTheme.Dark,
+                _ => ElementTheme.Default,
+            };
     }
 
     // ── Rendering ────────────────────────────────────────────────
