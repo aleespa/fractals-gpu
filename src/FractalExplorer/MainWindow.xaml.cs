@@ -46,6 +46,7 @@ public sealed partial class MainWindow : Window
     private CancellationTokenSource? _saveCts;
     private bool _saving;            // a save is running (Save disabled, no second save)
     private bool _saveDialogOpen;    // only one ContentDialog may be open at a time
+    private bool _saveWriting;       // the PNG is being written: progress updates ignored, Cancel disabled
 
     private string? _successFilePath;
     private object? _currentNavItem;   // container of the selected rail item, updated on SelectionChanged
@@ -101,15 +102,22 @@ public sealed partial class MainWindow : Window
         {
             PanelContent.Content = null;
             NavView.IsPaneOpen = false;   // the side panel has nothing to show for Settings
+            SidePanel.Visibility = Visibility.Collapsed;
+            _settingsView.SyncFromState();   // settings may have changed elsewhere (e.g. Save as folder)
             SettingsHost.Visibility = Visibility.Visible;
             return;
         }
         SettingsHost.Visibility = Visibility.Collapsed;
         if (ReferenceEquals(args.SelectedItem, ColoursNavItem)) PanelContent.Content = _coloursPane;
         else if (ReferenceEquals(args.SelectedItem, FractalNavItem)) PanelContent.Content = _fractalPane;
+        SidePanel.Visibility = NavView.IsPaneOpen ? Visibility.Visible : Visibility.Collapsed;
     }
 
-    private void NavView_PaneOpening(NavigationView sender, object args) => SidePanel.Visibility = Visibility.Visible;
+    // The hamburger can still open the pane on the Settings page; the side panel stays hidden there
+    // (the rail labels still show), so it never appears as an empty panel.
+    private void NavView_PaneOpening(NavigationView sender, object args) =>
+        SidePanel.Visibility = ReferenceEquals(NavView.SelectedItem, NavView.SettingsItem)
+            ? Visibility.Collapsed : Visibility.Visible;
 
     private void NavView_PaneClosing(NavigationView sender, NavigationViewPaneClosingEventArgs args) =>
         SidePanel.Visibility = Visibility.Collapsed;
@@ -378,8 +386,10 @@ public sealed partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Renders <paramref name="spec"/> on the Save lane with a progress strip and Cancel, then writes the PNG.
-    /// On cancel or failure, removes the target if it is empty (the picker's placeholder) or partially written.
+    /// Renders <paramref name="spec"/> on the Save lane with a progress strip and Cancel, then writes the PNG
+    /// to a temp file next to the target and moves it into place. On cancel or failure the temp file is
+    /// deleted, and the target only if it is the save picker's 0-byte placeholder; a pre-existing file the
+    /// user chose to replace survives any failure.
     /// </summary>
     private async void RunSave(SaveSpec spec)
     {
@@ -392,7 +402,8 @@ public sealed partial class MainWindow : Window
         string path = spec.Path;
         int w = spec.Width, h = spec.Height;
         bool written = false;
-        bool writeStarted = false;   // once fc_write_png opens the file, any previous content is gone
+        bool placeholder = IsEmptyFile(path);   // the save picker creates a 0-byte file for a new name
+        string? tmp = null;
         var sw = System.Diagnostics.Stopwatch.StartNew();
         try
         {
@@ -400,10 +411,16 @@ public sealed partial class MainWindow : Window
             double viewAspect = CanvasHost.ActualHeight > 0 ? CanvasHost.ActualWidth / CanvasHost.ActualHeight : 0;
             var req = SavePlanner.BuildRequest(View, Palette.ToNative(), spec, viewAspect);
             var dq = DispatcherQueue;
+            tmp = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(path)) ?? ".",
+                $"{Path.GetFileName(path)}.{Guid.NewGuid():N}.tmp");
+            string tmpPath = tmp;
 
             SuccessBar.IsOpen = false;
             InfoMessageBar.IsOpen = false;
             if (ErrorBar.Title == "Save failed") ErrorBar.IsOpen = false;   // a retry must not show both bars
+            _saveWriting = false;
+            SaveProgress.IsIndeterminate = false;
+            CancelSaveButton.IsEnabled = true;
             UpdateSaveProgress(cts, 0, w, h);
             SaveStrip.Visibility = Visibility.Visible;
 
@@ -419,9 +436,13 @@ public sealed partial class MainWindow : Window
                     lastPct = pct;
                     dq.TryEnqueue(() => UpdateSaveProgress(cts, pct, w, h));
                 }, ct);
-                if (!completed) return false;
-                Volatile.Write(ref writeStarted, true);
-                NativeRenderer.WritePng(path, w, h, rgb);
+                // Cancel pressed after the last band: still a cancel, nothing is written.
+                if (!completed || ct.IsCancellationRequested) return false;
+                // Encoding cannot be interrupted, so the strip switches to an indeterminate,
+                // non-cancellable "Writing PNG…" state.
+                dq.TryEnqueue(() => ShowSaveWriting(cts));
+                NativeRenderer.WritePng(tmpPath, w, h, rgb);
+                File.Move(tmpPath, path, overwrite: true);
                 return true;
             }, cts.Token);
 
@@ -450,8 +471,11 @@ public sealed partial class MainWindow : Window
         }
         finally
         {
-            if (!written) DeleteFailedSave(path, Volatile.Read(ref writeStarted));
+            if (!written) CleanUpFailedSave(path, tmp, placeholder);
             SaveStrip.Visibility = Visibility.Collapsed;
+            SaveProgress.IsIndeterminate = false;
+            CancelSaveButton.IsEnabled = true;
+            _saveWriting = false;
             SaveButton.IsEnabled = true;
             _saving = false;
             if (ReferenceEquals(_saveCts, cts)) _saveCts = null;
@@ -461,27 +485,57 @@ public sealed partial class MainWindow : Window
 
     private void UpdateSaveProgress(CancellationTokenSource cts, int pct, int w, int h)
     {
-        if (!ReferenceEquals(_saveCts, cts)) return;   // a late update from a finished save
+        if (!ReferenceEquals(_saveCts, cts) || _saveWriting) return;   // late update from a finished render
         SaveProgress.Value = pct;
         SaveProgressText.Text = string.Create(CultureInfo.InvariantCulture, $"Saving {w} × {h}… {pct}%");
     }
 
-    /// <summary>
-    /// Best-effort cleanup after a cancelled or failed save so no 0-byte / partial PNG is left behind:
-    /// deletes the target if it is empty (created by the save picker) or if the PNG write had already
-    /// started (contents are partial). A pre-existing non-empty file the save never touched is kept;
-    /// quick save never creates the file before writing. Never throws.
-    /// </summary>
-    private static void DeleteFailedSave(string path, bool writeStarted)
+    private void ShowSaveWriting(CancellationTokenSource cts)
+    {
+        if (!ReferenceEquals(_saveCts, cts)) return;   // the save already finished
+        _saveWriting = true;
+        SaveProgress.IsIndeterminate = true;
+        CancelSaveButton.IsEnabled = false;
+        SaveProgressText.Text = "Writing PNG…";
+    }
+
+    private static bool IsEmptyFile(string path)
     {
         try
         {
             var fi = new FileInfo(path);
-            if (fi.Exists && (writeStarted || fi.Length == 0)) fi.Delete();
+            return fi.Exists && fi.Length == 0;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Best-effort cleanup after a cancelled or failed save: deletes the temp file, and the target only
+    /// if it was the save picker's 0-byte placeholder (still empty). Never throws.
+    /// </summary>
+    private static void CleanUpFailedSave(string path, string? tmp, bool placeholder)
+    {
+        try
+        {
+            if (tmp is not null && File.Exists(tmp)) File.Delete(tmp);
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"Could not delete failed save '{path}': {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"Could not delete temp file '{tmp}': {ex.Message}");
+        }
+        if (placeholder && IsEmptyFile(path))
+        {
+            try
+            {
+                File.Delete(path);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Could not delete placeholder '{path}': {ex.Message}");
+            }
         }
     }
 

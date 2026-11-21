@@ -74,7 +74,11 @@ public sealed partial class SettingsView : UserControl
         {
             string folder = _owner.Settings.SaveFolder;
             Directory.CreateDirectory(folder);
-            System.Diagnostics.Process.Start("explorer.exe", $"\"{folder}\"");
+            // ArgumentList quotes the path correctly even for a drive root like C:\ (whose trailing
+            // backslash would otherwise escape the closing quote).
+            var psi = new System.Diagnostics.ProcessStartInfo("explorer.exe");
+            psi.ArgumentList.Add(folder);
+            System.Diagnostics.Process.Start(psi);
         }
         catch (Exception ex)
         {

@@ -75,6 +75,32 @@ public class SettingsStoreTests
     }
 
     [Fact]
+    public void Load_InvalidTheme_Normalized()
+    {
+        var d = Tmp();
+        try
+        {
+            var p = Path.Combine(d, "s.json");
+            File.WriteAllText(p, "{\"theme\":7}");
+            Assert.Equal(AppTheme.System, new SettingsStore(p).Load().Theme);
+        }
+        finally { Directory.Delete(d, true); }
+    }
+
+    [Fact]
+    public void Load_RelativeSaveFolder_UsesDefault()
+    {
+        var d = Tmp();
+        try
+        {
+            var p = Path.Combine(d, "s.json");
+            File.WriteAllText(p, "{\"saveFolder\":\"relative\\\\pics\"}");
+            Assert.Equal(AppSettings.Default.SaveFolder, new SettingsStore(p).Load().SaveFolder);
+        }
+        finally { Directory.Delete(d, true); }
+    }
+
+    [Fact]
     public void Save_UnwritableDirectory_DoesNotThrow()
     {
         var d = Tmp();

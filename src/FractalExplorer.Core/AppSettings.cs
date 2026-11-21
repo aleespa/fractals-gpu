@@ -20,10 +20,13 @@ public sealed record AppSettings
         bool sizeOk = ExportMath.IsValidSize(SaveWidth, SaveHeight);
         return this with
         {
-            SaveFolder = string.IsNullOrWhiteSpace(SaveFolder) ? DefaultFolder() : SaveFolder,
+            // A relative folder would resolve against the process working directory: use the default.
+            SaveFolder = !string.IsNullOrWhiteSpace(SaveFolder) && Path.IsPathFullyQualified(SaveFolder)
+                ? SaveFolder : DefaultFolder(),
             SaveWidth = sizeOk ? SaveWidth : 3840,
             SaveHeight = sizeOk ? SaveHeight : 2160,
             SaveSmoothingIndex = SaveSmoothingIndex is >= 0 and <= 2 ? SaveSmoothingIndex : 1,
+            Theme = Enum.IsDefined(Theme) ? Theme : AppTheme.System,
         };
     }
 }

@@ -37,7 +37,7 @@
         </ComboBox>
 
         <NumberBox x:Name="IterBox" Header="Iterations" Width="200" Minimum="0" Maximum="100000" HorizontalAlignment="Left"
-                   ValidationMode="Disabled" SpinButtonPlacementMode="Hidden" />
+                   ValidationMode="Disabled" SpinButtonPlacementMode="Hidden" ValueChanged="IterBox_ValueChanged" />
 
         <TextBlock x:Name="PickerError" Visibility="Collapsed" TextWrapping="Wrap"
                    Foreground="{ThemeResource SystemFillColorCriticalBrush}"

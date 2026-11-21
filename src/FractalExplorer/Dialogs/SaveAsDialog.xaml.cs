@@ -54,6 +54,13 @@ public sealed partial class SaveAsDialog : ContentDialog
         SizeError.Visibility = Visibility.Collapsed;
     }
 
+    // ValidationMode is Disabled (so a blank box means "same as view"), so clamp the shown value ourselves:
+    // what the box displays must be what Iterations() will use.
+    private void IterBox_ValueChanged(NumberBox sender, NumberBoxValueChangedEventArgs args)
+    {
+        if (!double.IsNaN(args.NewValue) && args.NewValue > MaxIterations) sender.Value = MaxIterations;
+    }
+
     private bool TryGetSize(out int w, out int h)
     {
         switch (SizeCombo.SelectedIndex)
