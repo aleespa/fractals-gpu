@@ -23,3 +23,5 @@ CMakeCache.txt
 x64/
 bin/
 obj/
+
+.superpowers/
