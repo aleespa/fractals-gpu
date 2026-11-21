@@ -30,6 +30,10 @@ typedef struct FcParams {
    Calls are serialized internally (one GPU job at a time). */
 FC_API int32_t fc_render(const FcParams* p, uint8_t* out, int32_t format,
                          const volatile int32_t* cancelFlag);
+typedef void (*FcProgressFn)(int32_t rowsDone, int32_t totalRows, void* user);
+/* Same as fc_render; calls cb (if non-NULL) on the calling thread after each completed band. */
+FC_API int32_t fc_render_progress(const FcParams* p, uint8_t* out, int32_t format,
+                                  const volatile int32_t* cancelFlag, FcProgressFn cb, void* user);
 /* RGB8 buffer -> PNG via stb_image_write. pathUtf8 is UTF-8. */
 FC_API int32_t fc_write_png(const char* pathUtf8, int32_t width, int32_t height,
                             const uint8_t* rgb);

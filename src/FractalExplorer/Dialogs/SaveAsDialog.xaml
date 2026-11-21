@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ContentDialog
+    x:Class="FractalExplorer.Dialogs.SaveAsDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="Save as"
+    PrimaryButtonText="Save…"
+    CloseButtonText="Cancel"
+    DefaultButton="Primary"
+    Style="{StaticResource DefaultContentDialogStyle}"
+    PrimaryButtonClick="OnPrimaryButtonClick">
+
+    <StackPanel Spacing="16" MinWidth="320">
+        <StackPanel Spacing="6">
+            <ComboBox x:Name="SizeCombo" Header="Size" MinWidth="200"
+                      SelectionChanged="SizeCombo_SelectionChanged">
+                <ComboBoxItem Content="4K (3840 × 2160)" />
+                <ComboBoxItem Content="8K (7680 × 4320)" />
+                <ComboBoxItem Content="Custom" />
+            </ComboBox>
+            <StackPanel x:Name="CustomSizePanel" Orientation="Horizontal" Spacing="8" Visibility="Collapsed">
+                <NumberBox x:Name="WidthBox" Header="Width" Width="120" ValidationMode="Disabled"
+                           SpinButtonPlacementMode="Hidden" ValueChanged="SizeBox_ValueChanged" />
+                <NumberBox x:Name="HeightBox" Header="Height" Width="120" ValidationMode="Disabled"
+                           SpinButtonPlacementMode="Hidden" ValueChanged="SizeBox_ValueChanged" />
+            </StackPanel>
+            <TextBlock x:Name="SizeError" Visibility="Collapsed" TextWrapping="Wrap"
+                       Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                       Style="{StaticResource CaptionTextBlockStyle}"
+                       Text="Width and height must be between 16 and 16384." />
+        </StackPanel>
+
+        <ComboBox x:Name="SmoothCombo" Header="Smoothing" MinWidth="200">
+            <ComboBoxItem Content="Off" />
+            <ComboBoxItem Content="4×" />
+            <ComboBoxItem Content="16×" />
+        </ComboBox>
+
+        <NumberBox x:Name="IterBox" Header="Iterations" Width="200" Minimum="0" Maximum="100000" HorizontalAlignment="Left"
+                   ValidationMode="Disabled" SpinButtonPlacementMode="Hidden" ValueChanged="IterBox_ValueChanged" />
+
+        <TextBlock x:Name="PickerError" Visibility="Collapsed" TextWrapping="Wrap"
+                   Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                   Style="{StaticResource CaptionTextBlockStyle}" />
+    </StackPanel>
+</ContentDialog>

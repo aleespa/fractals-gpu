@@ -28,6 +28,24 @@ public static unsafe partial class NativeRenderer
     [LibraryImport("FractalCore", EntryPoint = "fc_render")]
     private static partial int FcRender(FcParams* p, byte* output, int format, int* cancelFlag);
 
+    [LibraryImport("FractalCore", EntryPoint = "fc_render_progress")]
+    private static partial int FcRenderProgress(FcParams* p, byte* output, int format, int* cancelFlag,
+        delegate* unmanaged[Cdecl]<int, int, void*, void> cb, void* user);
+
+    private sealed class ProgressState(Action<double> cb, int* flag)
+    {
+        public readonly Action<double> Cb = cb;
+        public readonly int* Flag = flag;
+    }
+
+    [UnmanagedCallersOnly(CallConvs = new[] { typeof(System.Runtime.CompilerServices.CallConvCdecl) })]
+    private static void ProgressThunk(int rowsDone, int totalRows, void* user)
+    {
+        var st = (ProgressState)GCHandle.FromIntPtr((IntPtr)user).Target!;
+        try { st.Cb(totalRows > 0 ? (double)rowsDone / totalRows : 1.0); }
+        catch { Volatile.Write(ref *st.Flag, 1); }
+    }
+
     [LibraryImport("FractalCore", EntryPoint = "fc_write_png")]
     private static partial int FcWritePng(byte* pathUtf8, int width, int height, byte* rgb);
 
@@ -47,7 +65,11 @@ public static unsafe partial class NativeRenderer
     private static FractalRenderException NotFound(DllNotFoundException e) =>
         new($"FractalCore.dll not found (build the native projects first): {e.Message}");
 
-    public static bool Render(RenderRequest req, PixelFormat format, Span<byte> output, CancellationToken ct)
+    public static bool Render(RenderRequest req, PixelFormat format, Span<byte> output, CancellationToken ct) =>
+        Render(req, format, output, null, ct);
+
+    public static bool Render(RenderRequest req, PixelFormat format, Span<byte> output,
+        Action<double>? progress, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(req);
         long need = (long)Math.Max(req.Width, 0) * Math.Max(req.Height, 0) * BytesPerPixel(format);
@@ -56,8 +78,10 @@ public static unsafe partial class NativeRenderer
         int n = Math.Min(req.PaletteT.Length, req.PaletteRgb.Length / 3);
 
         int* flag = (int*)NativeMemory.AllocZeroed(sizeof(int));
+        GCHandle handle = default;
         try
         {
+            if (progress != null) handle = GCHandle.Alloc(new ProgressState(progress, flag));
             using var reg = ct.Register(static p => Volatile.Write(ref *(int*)(nint)p!, 1), (nint)flag);
             fixed (float* pt = req.PaletteT)
             fixed (float* prgb = req.PaletteRgb)
@@ -71,7 +95,12 @@ public static unsafe partial class NativeRenderer
                     PalT = n > 0 ? pt : null, PalRgb = n > 0 ? prgb : null,
                 };
                 int rc;
-                try { rc = FcRender(&p, o, (int)format, flag); }
+                try
+                {
+                    rc = progress == null
+                        ? FcRender(&p, o, (int)format, flag)
+                        : FcRenderProgress(&p, o, (int)format, flag, &ProgressThunk, (void*)GCHandle.ToIntPtr(handle));
+                }
                 catch (DllNotFoundException e) { throw NotFound(e); }
                 if (rc == FcOk) return true;
                 if (rc == FcCancelled) return false;
@@ -80,6 +109,7 @@ public static unsafe partial class NativeRenderer
         }
         finally
         {
+            if (handle.IsAllocated) handle.Free();
             NativeMemory.Free(flag);
         }
     }
