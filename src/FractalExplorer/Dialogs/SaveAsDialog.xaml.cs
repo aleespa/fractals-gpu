@@ -10,6 +10,9 @@ namespace FractalExplorer.Dialogs;
 /// </summary>
 public sealed partial class SaveAsDialog : ContentDialog
 {
+    /// <summary>Upper bound for save iterations (as in v0.1.0); larger values risk the ~2 s TDR per band.</summary>
+    public const int MaxIterations = 100000;
+
     private readonly FractalType _type;
     private readonly int _viewIterations;
     private readonly IntPtr _hwnd;
@@ -72,7 +75,7 @@ public sealed partial class SaveAsDialog : ContentDialog
     {
         double v = IterBox.Value;
         if (double.IsNaN(v) || v <= 0) return _viewIterations;
-        return (int)Math.Max(1, Math.Min(Math.Round(v), int.MaxValue));
+        return (int)Math.Clamp(Math.Round(v), 1, MaxIterations);   // cap keeps each 32-row band under the GPU watchdog
     }
 
     private async void OnPrimaryButtonClick(ContentDialog sender, ContentDialogButtonClickEventArgs args)

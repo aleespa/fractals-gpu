@@ -403,6 +403,7 @@ public sealed partial class MainWindow : Window
 
             SuccessBar.IsOpen = false;
             InfoMessageBar.IsOpen = false;
+            if (ErrorBar.Title == "Save failed") ErrorBar.IsOpen = false;   // a retry must not show both bars
             UpdateSaveProgress(cts, 0, w, h);
             SaveStrip.Visibility = Visibility.Visible;
 
